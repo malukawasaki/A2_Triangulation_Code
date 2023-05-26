@@ -25,6 +25,7 @@
 #include "triangulation.h"
 #include "matrix_algo.h"
 #include <easy3d/optimizer/optimizer_lm.h>
+#include <numeric>
 
 
 using namespace easy3d;
@@ -43,8 +44,7 @@ bool Triangulation::triangulation(
         std::vector<Vector3D> &points_3d,       /// output: reconstructed 3D points
         Matrix33 &R,   /// output: 3 by 3 matrix, which is the recovered rotation of the 2nd camera
         Vector3D &t    /// output: 3D vector, which is the recovered translation of the 2nd camera
-) const
-{
+) const {
     /// NOTE: there might be multiple workflows for reconstructing 3D geometry from corresponding image points.
     ///       This assignment uses the commonly used one explained in our lecture.
     ///       It is advised to define a function for the sub-tasks. This way you have a clean and well-structured
@@ -67,7 +67,8 @@ bool Triangulation::triangulation(
                  "\t    - delete ALL unrelated test or debug code and avoid unnecessary output.\n"
                  "\t    - include all the source code (and please do NOT modify the structure of the directories).\n"
                  "\t    - do NOT include the 'build' directory (which contains the intermediate files in a build step).\n"
-                 "\t    - make sure your code compiles and can reproduce your results without ANY modification.\n\n" << std::flush;
+                 "\t    - make sure your code compiles and can reproduce your results without ANY modification.\n\n"
+              << std::flush;
 
     /// Below are a few examples showing some useful data structures and APIs.
 
@@ -85,11 +86,6 @@ bool Triangulation::triangulation(
 
     /// define a 3 by 3 matrix (and all elements initialized to 0.0)
     Matrix33 A;
-
-    /// define and initialize a 3 by 3 matrix
-    Matrix33 T(1.1, 2.2, 3.3,
-               0, 2.2, 3.3,
-               0, 0, 1);
 
     /// define and initialize a 3 by 4 matrix
     Matrix34 M(1.1, 2.2, 3.3, 0,
@@ -132,25 +128,82 @@ bool Triangulation::triangulation(
     //--------------------------------------------------------------------------------------------------------------
     // implementation starts ...
 
-    // TODO: check if the input is valid (always good because you never known how others will call your function).
+    /// Check if the input is valid (i.e. sizes of points must match and be greater or equal to 8)
+    if (points_0.size() != points_1.size() || points_0.size() < 8) {
+        std::cout << "Sizes of points do not match or are smaller than 8. This operation is not possible" << std::endl;
+        return false;
+    } else {
+        std::cout << "Sizes of points match and are greater or equal to 8. This operation is possible"
+                  << std::endl;
 
-    // TODO: Estimate relative pose of two views. This can be subdivided into
-    //      - estimate the fundamental matrix F;
-    //      - compute the essential matrix E;
-    //      - recover rotation R and t.
+        // TODO: Estimate relative pose of two views. This can be done by solving the following steps:
+        //      - estimate the fundamental matrix F;
+        //      - compute the essential matrix E;
+        //      - recover rotation R and t.
 
-    // TODO: Reconstruct 3D points. The main task is
-    //      - triangulate a pair of image points (i.e., compute the 3D coordinates for each corresponding point pair)
+        // TODO: Estimate the fundamental matrix F;
+        // Normalization
+        double sumx0 = 0;
+        double sumy0 = 0;
+        double sumx1 = 0;
+        double sumy1 = 0;
+        for (int i = 0; i < points_0.size(); i++) {
+            sumx0 = sumx0 + points_0[i].x();
+            sumy0 = sumy0 + points_0[i].y();
+            sumx1 = sumx1 + points_1[i].x();
+            sumy1 = sumy1 + points_1[i].y();}
 
-    // TODO: Don't forget to
-    //          - write your recovered 3D points into 'points_3d' (so the viewer can visualize the 3D points for you);
-    //          - write the recovered relative pose into R and t (the view will be updated as seen from the 2nd camera,
-    //            which can help you check if R and t are correct).
-    //       You must return either 'true' or 'false' to indicate whether the triangulation was successful (so the
-    //       viewer will be notified to visualize the 3D points and update the view).
-    //       There are a few cases you should return 'false' instead, for example:
-    //          - function not implemented yet;
-    //          - input not valid (e.g., not enough points, point numbers don't match);
-    //          - encountered failure in any step.
-    return points_3d.size() > 0;
+        double tx0 = sumx0 / points_0.size();
+        double ty0 = sumy0 / points_0.size();
+        double tx1 = sumx1 / points_1.size();
+        double ty1 = sumy1 / points_1.size();
+        Vector2D s0;
+        Vector2D s1;
+
+        for (int i = 0; i < points_0.size(); i++) {
+            Vector2D mc0[i];
+            Vector2D mc1[i];
+            Vector2D dc0[i];
+            Vector2D dc1[i];
+            mc0[i].x() = points_0[i].x() - tx0;
+            mc0[i].y() = points_0[i].y() - ty0;
+            mc1[i].x() = points_1[i].x() - tx1;
+            mc1[i].y() = points_1[i].y() - ty1;
+            dc0[i].x() += sqrt(pow(mc0[i].x(),2));
+            dc0[i].y() += sqrt(pow(mc0[i].y(),2));
+            dc1[i].x() += sqrt(pow(mc1[i].x(),2));
+            dc1[i].y() += sqrt(pow(mc1[i].y(),2));
+            s0[i] = sqrt(2)/dc0[i];
+            //TODO: Check if the one bellow is a way calculate s
+            s1[i] = dot(1.0/sqrt(2),dc1[i]);
+        }
+
+        // TODO: Fix s
+        // TODO: Do we need two matrices? (i.e. T0 and T1 to use tx0 and tx1?)
+        Matrix33 T0(s0, 0, -s0*tx0,
+                    0, s0, -s0*ty0,
+                    0, 0, 1);
+
+        Matrix33 T1(s1, 0, -s1*tx1,
+                    0, s1, -s1*ty1,
+                    0, 0, 1);
+
+        //F = F'*T0*T1?
+
+        // TODO: Reconstruct 3D points. The main task is
+        //      - triangulate a pair of image points (i.e., compute the 3D coordinates for each corresponding point pair)
+
+        // TODO: Don't forget to
+        //          - write your recovered 3D points into 'points_3d' (so the viewer can visualize the 3D points for you);
+        //          - write the recovered relative pose into R and t (the view will be updated as seen from the 2nd camera,
+        //            which can help you check if R and t are correct).
+        //       You must return either 'true' or 'false' to indicate whether the triangulation was successful (so the
+        //       viewer will be notified to visualize the 3D points and update the view).
+        //       There are a few cases you should return 'false' instead, for example:
+        //          - function not implemented yet;
+        //          - input not valid (e.g., not enough points, point numbers don't match);
+        //          - encountered failure in any step.
+
+        return points_3d.size() > 0;
+    }
 }
