@@ -1,0 +1,9 @@
+"C:\Program Files\JetBrains\CLion 2022.3.2\bin\cmake\win\x64\bin\cmake.exe" -DCMAKE_BUILD_TYPE=Release "-DCMAKE_MAKE_PROGRAM=C:/Program Files/JetBrains/CLion 2022.3.2/bin/ninja/win/x64/ninja.exe" -G Ninja -S C:\Users\maluk\Downloads\A2_Triangulation\A2_Triangulation_Code -B C:\Users\maluk\Downloads\A2_Triangulation\A2_Triangulation_Code\cmake-build-release
+-- Easy3D: I'am working on a 32-bit Windows
+-- OpenGL libraries: opengl32;glu32
+-- Using Win32 for window creation
+-- Operating system is Windows
+-- Building static libraries.
+-- Configuring done
+-- Generating done
+-- Build files have been written to: C:/Users/maluk/Downloads/A2_Triangulation/A2_Triangulation_Code/cmake-build-release
