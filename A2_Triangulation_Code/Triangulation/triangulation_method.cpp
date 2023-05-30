@@ -143,7 +143,7 @@ bool Triangulation::triangulation(
 
         // TODO: Estimate the fundamental matrix F;
         //Normalize the image points:
-        //Compute the centroid of the image points (TRANSLATION):
+        //Compute the centroid of the image points.
         Vector2D centroid0(0,0);
         Vector2D centroid1(0,0);
 
@@ -167,37 +167,29 @@ bool Triangulation::triangulation(
         avg_distance0 /= points_0.size();
         avg_distance1 /= points_1.size();
 
-        /*//CHECK:: The average distance of the transformed image points from the origin should be equal to sqrt(2).
-        if (avg_distance0 != sqrt(2) || avg_distance1 != sqrt(2)) {
-            // It's not correct, so we need to normalize the points
-            std::cout << "The average distance between the points and the origin is NOT sqrt(2) pixels!" << std::endl;
-        } else {
-            // It's correct, so we can continue
-            std::cout << "The average distance between the points and the origin is sqrt(2) pixels!" << std::endl;
+        // Check if the average distance is already sqrt(2)
+        if (avg_distance0 == sqrt(2) && avg_distance1 == sqrt(2)) {
+            std::cout << "The average distance between the points and the origin is already sqrt(2) pixels!" << std::endl;
+            return true;
         }
-*/
+
         //Compute the similarity transformation (translation + scaling):
 
         //Scaling
-        Matrix33 S0, S1;
-
-        S0.set_row(0, Vector3D(sqrt(2) / avg_distance0, 0, 0));
-        S0.set_row(1, Vector3D(0, sqrt(2) / avg_distance0, 0));
-        S0.set_row(2, Vector3D(0, 0, 1));
-
-        S1.set_row(0, Vector3D(sqrt(2) / avg_distance1, 0, 0));
-        S1.set_row(1, Vector3D(0, sqrt(2) / avg_distance1, 0));
-        S1.set_row(2, Vector3D(0, 0, 1));
+        Matrix33 S0(sqrt(2) / avg_distance0, 0, -sqrt(2) / avg_distance0 * centroid0[0],
+                0, sqrt(2) / avg_distance0, -sqrt(2) / avg_distance0 * centroid0[1],
+                0, 0, 1);
+        Matrix33 S1(sqrt(2) / avg_distance1, 0, -sqrt(2) / avg_distance1 * centroid1[0],
+                0, sqrt(2) / avg_distance1, -sqrt(2) / avg_distance1 * centroid1[1],
+                0, 0, 1);
 
         //Translation
-        Matrix33 T0, T1;
-        T0.set_row(0, Vector3D(1, 0, -centroid0[0]));
-        T0.set_row(1, Vector3D(0, 1, -centroid0[1]));
-        T0.set_row(2, Vector3D(0, 0, 1));
-
-        T1.set_row(0, Vector3D(1, 0, -centroid1[0]));
-        T1.set_row(1, Vector3D(0, 1, -centroid1[1]));
-        T1.set_row(2, Vector3D(0, 0, 1));
+        Matrix33 T0(1,0, -centroid0[0],
+                    0, 1, -centroid0[1],
+                    0, 0, 1);
+        Matrix33 T1(1, 0, -centroid1[0],
+                    0, 1, -centroid1[1],
+                    0, 0, 1);
 
         //CHECK:: Print out T0 and T1 to check if it is correct
         std::cout<< "T0 = " << T0 << std::endl;
@@ -205,49 +197,60 @@ bool Triangulation::triangulation(
         std::cout<< "S0 = " << S0 << std::endl;
         std::cout<< "S1 = " << S1 << std::endl;
 
-        //Normalize the image points using T0 and T1:
+        // Normalize the image points using scaling and translating;
         std::vector<Vector2D> points_0_normalized;
         std::vector<Vector2D> points_1_normalized;
+        points_0_normalized.resize(points_0.size());
+        points_1_normalized.resize(points_0.size());
 
-        //Translating x and y of points 0
         for (int i = 0; i < points_0.size(); i++) {
-            T0 * points_0[i].x() = points_0_normalized[i].x();
-            T0 * points_0[i].y() = points_0_normalized[i].y();
-            T1 * points_1[i].x() = points_1_normalized[i].x();
-            T1 * points_1[i].y() = points_1_normalized[i].y();
-            S0 * points_0[i].x() = points_0_normalized[i].x();
-            S0 * points_0[i].y() = points_0_normalized[i].y();
-            S1 * points_1[i].x() = points_1_normalized[i].x();
-            S1 * points_1[i].y() = points_1_normalized[i].y();
+            Vector3D p0_homogeneous(points_0[i].x(), points_0[i].y(), 1);
+            Vector3D p0_normalized_homogeneous = S0 * (T0 * p0_homogeneous);
+            points_0_normalized[i] = Vector2D(p0_normalized_homogeneous.x() / p0_normalized_homogeneous.z(),
+                                              p0_normalized_homogeneous.y() / p0_normalized_homogeneous.z());
+
+            Vector3D p1_homogeneous(points_1[i].x(), points_1[i].y(), 1);
+            Vector3D p1_normalized_homogeneous = S1 * (T1 * p1_homogeneous);
+            points_1_normalized[i] = Vector2D(p1_normalized_homogeneous.x() / p1_normalized_homogeneous.z(),
+                                              p1_normalized_homogeneous.y() / p1_normalized_homogeneous.z());
         }
 
-        //Compute the average distance of the image points to the origin (SCALING):
-        double norm_avg_distance0 = 0;
-        double norm_avg_distance1 = 0;
-        for (int i = 0; i < points_0.size(); i++){
-            //Adds the value of points1[i] to the "avg_distance1" variable.
-            norm_avg_distance0 += (points_0_normalized[i] - centroid0).norm();
-            norm_avg_distance1 += (points_1_normalized[i] - centroid1).norm();
-        }
-        //Divide the sum of the points by the number of points to get the average, which is the average distance.
-        norm_avg_distance0 /= points_0.size();
-        norm_avg_distance1 /= points_1.size();
+        // Compute the centroid of the normalized image points
+        Vector2D centroid0_normalized(0, 0);
+        Vector2D centroid1_normalized(0, 0);
 
-        //CHECK:: The average distance of the transformed image points from the origin should be equal to sqrt(2).
-        if (norm_avg_distance0 != sqrt(2) || norm_avg_distance1 != sqrt(2)) {
-            // It's not correct, so we need to normalize the points
-            std::cout << "The average distance between the points and the origin is NOT sqrt(2) pixels!" << std::endl;
-        } else {
-            // It's correct, so we can continue
+        for (int i = 0; i < points_0_normalized.size(); i++) {
+            centroid0_normalized += points_0_normalized[i];
+            centroid1_normalized += points_1_normalized[i];
+        }
+
+        centroid0_normalized /= points_0_normalized.size();
+        centroid1_normalized /= points_1_normalized.size();
+
+// Compute the average distance of the normalized image points to the origin (SCALING)
+        double sum_avg_distance0_normalized = 0;
+        double sum_avg_distance1_normalized = 0;
+
+        for (int i = 0; i < points_0_normalized.size(); i++) {
+            sum_avg_distance0_normalized += (points_0_normalized[i] - centroid0_normalized).norm();
+            sum_avg_distance1_normalized += (points_1_normalized[i] - centroid1_normalized).norm();
+        }
+
+        double norm_avg_distance0_normalized = sum_avg_distance0_normalized / points_0_normalized.size();
+        double norm_avg_distance1_normalized = sum_avg_distance1_normalized / points_0_normalized.size();
+
+// Check if the normalized average distance is equal to sqrt(2)
+        if (std::abs(norm_avg_distance0_normalized - std::sqrt(2.0)) < 1e-6 &&
+            std::abs(norm_avg_distance1_normalized - std::sqrt(2.0)) < 1e-6) {
             std::cout << "The average distance between the points and the origin is sqrt(2) pixels!" << std::endl;
+        } else {
+            std::cout << "The average distance between the points and the origin is NOT sqrt(2) pixels!" << std::endl;
+            return false;
         }
 
-        //CHECK:: Print out the normalized points
-        std::cout<< "points_0_normalized = " << points_0_normalized[0] << std::endl;
-        std::cout<< "points_1_normalized = " << points_1_normalized[0] << std::endl;
-
-        //Turn the 8 Vector2D points into a matrix of size 8x9.
-        Matrix W (8,9);
+     //Turn the 8 Vector2D points into a matrix of size 8x9.
+        int size = int(points_0.size());
+        Matrix W (size,9);
         //Fill in the matrix W with the values of the normalized points.
         //P = [x1'x1, x1'y1, x1', y1'x1, y1'y1, y1', x1, y1, 1]
         //P = [x2'x2, x2'y2, x2', y2'x2, y2'y2, y2', x2, y2, 1]
@@ -282,7 +285,7 @@ bool Triangulation::triangulation(
 
         Matrix33 Fq = U * D * V.transpose();
         //CHECK:: Print out Fq to see if its correct.
-        std::cout << "Fq = " << Fq << std::endl;
+        std::cout << "Fq = " << Fq << std::endl;*/
 
         //6. Compute F using the inverse of the similarity transformation to Fq:
         //Finally, we can transform the new Fq back to the original coordinates using the inverse of the similarity transformation to compute F.
