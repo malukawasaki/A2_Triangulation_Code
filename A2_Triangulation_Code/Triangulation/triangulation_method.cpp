@@ -26,7 +26,7 @@
 #include "matrix_algo.h"
 #include <easy3d/optimizer/optimizer_lm.h>
 #include <numeric>
-
+#include <list>
 
 using namespace easy3d;
 
@@ -99,21 +99,21 @@ bool Triangulation::triangulation(
     M.set_column(1, Vector3D(5.5, 5.5, 5.5));
 
     /// define a 15 by 9 matrix (and all elements initialized to 0.0)
-    Matrix W(15, 9, 0.0);
+    // Matrix W(15, 9, 0.0);
     /// set the first row by a 9-dimensional vector
-    W.set_row(0, {0, 1, 2, 3, 4, 5, 6, 7, 8}); // {....} is equivalent to a std::vector<double>
+    // W.set_row(0, {0, 1, 2, 3, 4, 5, 6, 7, 8}); // {....} is equivalent to a std::vector<double>
 
     /// get the number of rows.
-    int num_rows = W.rows();
+   // int num_rows = W.rows();
 
     /// get the number of columns.
-    int num_cols = W.cols();
+    // int num_cols = W.cols();
 
     /// get the the element at row 1 and column 2
-    double value = W(1, 2);
+   // double value = W(1, 2);
 
     /// get the last column of a matrix
-    Vector last_column = W.get_column(W.cols() - 1);
+    // Vector last_column = W.get_column(W.cols() - 1);
 
     /// define a 3 by 3 identity matrix
     Matrix33 I = Matrix::identity(3, 3, 1.0);
@@ -142,8 +142,141 @@ bool Triangulation::triangulation(
         //      - recover rotation R and t.
 
         // TODO: Estimate the fundamental matrix F;
-        // Normalization
-        double sumx0 = 0;
+        //Normalize the image points:
+        //Compute the centroid of the image points (TRANSLATION):
+        Vector2D centroid0(0,0);
+        Vector2D centroid1(0,0);
+
+        for (int i = 0; i < points_0.size(); i++){
+            centroid0 += points_0[i];
+            centroid1 += points_1[i];
+        }
+
+        centroid0 /= points_0.size();
+        centroid1 /= points_1.size();
+
+        //Compute the average distance of the image points to the origin (SCALING):
+        double avg_distance0 = 0;
+        double avg_distance1 = 0;
+        for (int i = 0; i < points_0.size(); i++){
+            //Adds the value of points1[i] to the "avg_distance1" variable.
+            avg_distance0 += (points_0[i] - centroid0).norm();
+            avg_distance1 += (points_1[i] - centroid1).norm();
+        }
+        //Divide the sum of the points by the number of points to get the average, which is the average distance.
+        avg_distance0 /= points_0.size();
+        avg_distance1 /= points_1.size();
+
+        //CHECK:: The average distance of the transformed image points from the origin should be equal to sqrt(2).
+        if (avg_distance0 != sqrt(2) || avg_distance1 != sqrt(2)) {
+            // It's not correct, so we need to normalize the points
+            std::cout << "The average distance between the points and the origin is NOT sqrt(2) pixels!" << std::endl;
+        } else {
+            // It's correct, so we can continue
+            std::cout << "The average distance between the points and the origin is sqrt(2) pixels!" << std::endl;
+        }
+
+        //Compute the similarity transformation (translation + scaling):
+
+        //Scaling
+        Matrix33 S0, S1;
+
+        S0.set_row(0, Vector3D(sqrt(2) / avg_distance0, 0, 0));
+        S0.set_row(1, Vector3D(0, sqrt(2) / avg_distance0, 0));
+        S0.set_row(2, Vector3D(0, 0, 1));
+
+        S1.set_row(0, Vector3D(sqrt(2) / avg_distance1, 0, 0));
+        S1.set_row(1, Vector3D(0, sqrt(2) / avg_distance1, 0));
+        S1.set_row(2, Vector3D(0, 0, 1));
+
+        //Translation
+        Matrix33 T0, T1;
+        T0.set_row(0, Vector3D(1, 0, -centroid0[0]));
+        T0.set_row(1, Vector3D(0, 1, -centroid0[1]));
+        T0.set_row(2, Vector3D(0, 0, 1));
+
+        T1.set_row(0, Vector3D(1, 0, -centroid1[0]));
+        T1.set_row(1, Vector3D(0, 1, -centroid1[1]));
+        T1.set_row(2, Vector3D(0, 0, 1));
+
+        //CHECK:: Print out T0 and T1 to check if it is correct
+        std::cout<< "T0 = " << T0 << std::endl;
+        std::cout<< "T1 = " << T1 << std::endl;
+
+        //Normalize the image points using T0 and T1:
+        Vector2D points_0_normalized;
+        Vector2D points_1_normalized;
+
+        //Translating x and y of points 0
+        for (int i = 0; i < points_0.size(); i++) {
+            T0 * points_0[i].x() = points_0_normalized.x();
+            T0 * points_0[i].y() = points_0_normalized[i].y();
+            T1 * points_1[i].x() = points_1_normalized.x();
+            T1 * points_1[i].y() = points_1_normalized.y();
+        }
+
+        //CHECK:: Print out the normalized points
+        std::cout<< "points_0_normalized = " << points_0_normalized << std::endl;
+        std::cout<< "points_1_normalized = " << points_1_normalized << std::endl;
+
+        //Turn the 8 Vector2D points into a matrix of size 8x9.
+        Matrix W (8,9);
+        //Fill in the matrix W with the values of the normalized points.
+        //P = [x1'x1, x1'y1, x1', y1'x1, y1'y1, y1', x1, y1, 1]
+        //P = [x2'x2, x2'y2, x2', y2'x2, y2'y2, y2', x2, y2, 1]
+        for (int i = 0; i < points_0.size(); i++){
+            W.set(i,0, points_0_normalized[i][0] * points_1_normalized[i][0]);
+            W.set(i,1, points_0_normalized[i][0] * points_1_normalized[i][1]);
+            W.set(i,2, points_0_normalized[i][0]);
+            W.set(i,3, points_0_normalized[i][1] * points_1_normalized[i][0]);
+            W.set(i,4, points_0_normalized[i][1] * points_1_normalized[i][1]);
+            W.set(i,5, points_0_normalized[i][1]);
+            W.set(i,6, points_0_normalized[i][0]);
+            W.set(i,7, points_0_normalized[i][1]);
+            W.set(i,8, 1);
+        }
+
+        //5. Compute Fq (estimation of F) using the normalized points:
+        //WFq = 0 …where W is a Nx9 matrix derived from Nx8 correspondences and Fq is the values of the fundamental matrix we desire.
+        //Fq = UDV^T …where U and V are 3x3 matrices and D is a 3x3 diagonal matrix.
+
+        Matrix33 U, V, D;
+        svd_decompose(W, U, D, V);
+
+        //CHECK:: Print out U, D, and V to check if it is correct
+        std::cout<< "U = " << U << std::endl;
+        std::cout<< "D = " << D << std::endl;
+        std::cout<< "V = " << V << std::endl;
+
+        // We can enforce the rank-2 constraint by setting the smallest singular value to 0.
+        D.set(2,2,0);
+        //CHECK:: Print out D to see if its correct.
+        std::cout << "D = " << D << std::endl;
+
+        Matrix33 Fq = U * D * V.transpose();
+        //CHECK:: Print out Fq to see if its correct.
+        std::cout << "Fq = " << Fq << std::endl;
+
+        //6. Compute F using the inverse of the similarity transformation to Fq:
+        //Finally, we can transform the new Fq back to the original coordinates using the inverse of the similarity transformation to compute F.
+        //F = T2^T * Fq * T1
+        Matrix F;
+        F = T1.transpose() * Fq * T0;
+
+        //CHECK:: Print out F to see if its correct.
+        std::cout<< "F = " << F << std::endl;
+
+        //7. Write the recovered relative pose into R and t  (the view will be updated as seen from the 2nd camera):
+        //R = U * Rz * V^T
+        //t = u3
+        R = U * D * V.transpose();
+        t = U.get_column(2);
+
+        //CHECK:: Print out R and t to see if its correct.
+        std::cout<< "R = " << R << std::endl;
+        std::cout<< "t = " << t << std::endl;
+
+/*        double sumx0 = 0;
         double sumy0 = 0;
         double sumx1 = 0;
         double sumy1 = 0;
@@ -178,6 +311,8 @@ bool Triangulation::triangulation(
             s1[i] = dot(1.0/sqrt(2),dc1[i]);
         }
 
+        double s = sqrt(dc1[0])/1.0
+
         // TODO: Fix s
         // TODO: Do we need two matrices? (i.e. T0 and T1 to use tx0 and tx1?)
         Matrix33 T0(s0, 0, -s0*tx0,
@@ -186,7 +321,7 @@ bool Triangulation::triangulation(
 
         Matrix33 T1(s1, 0, -s1*tx1,
                     0, s1, -s1*ty1,
-                    0, 0, 1);
+                    0, 0, 1);*/
 
         //F = F'*T0*T1?
 
