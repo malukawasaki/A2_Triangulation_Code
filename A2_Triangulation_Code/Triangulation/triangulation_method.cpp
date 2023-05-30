@@ -167,7 +167,7 @@ bool Triangulation::triangulation(
         avg_distance0 /= points_0.size();
         avg_distance1 /= points_1.size();
 
-        //CHECK:: The average distance of the transformed image points from the origin should be equal to sqrt(2).
+        /*//CHECK:: The average distance of the transformed image points from the origin should be equal to sqrt(2).
         if (avg_distance0 != sqrt(2) || avg_distance1 != sqrt(2)) {
             // It's not correct, so we need to normalize the points
             std::cout << "The average distance between the points and the origin is NOT sqrt(2) pixels!" << std::endl;
@@ -175,7 +175,7 @@ bool Triangulation::triangulation(
             // It's correct, so we can continue
             std::cout << "The average distance between the points and the origin is sqrt(2) pixels!" << std::endl;
         }
-
+*/
         //Compute the similarity transformation (translation + scaling):
 
         //Scaling
@@ -202,22 +202,49 @@ bool Triangulation::triangulation(
         //CHECK:: Print out T0 and T1 to check if it is correct
         std::cout<< "T0 = " << T0 << std::endl;
         std::cout<< "T1 = " << T1 << std::endl;
+        std::cout<< "S0 = " << S0 << std::endl;
+        std::cout<< "S1 = " << S1 << std::endl;
 
         //Normalize the image points using T0 and T1:
-        Vector2D points_0_normalized;
-        Vector2D points_1_normalized;
+        std::vector<Vector2D> points_0_normalized;
+        std::vector<Vector2D> points_1_normalized;
 
         //Translating x and y of points 0
         for (int i = 0; i < points_0.size(); i++) {
-            T0 * points_0[i].x() = points_0_normalized.x();
+            T0 * points_0[i].x() = points_0_normalized[i].x();
             T0 * points_0[i].y() = points_0_normalized[i].y();
-            T1 * points_1[i].x() = points_1_normalized.x();
-            T1 * points_1[i].y() = points_1_normalized.y();
+            T1 * points_1[i].x() = points_1_normalized[i].x();
+            T1 * points_1[i].y() = points_1_normalized[i].y();
+            S0 * points_0[i].x() = points_0_normalized[i].x();
+            S0 * points_0[i].y() = points_0_normalized[i].y();
+            S1 * points_1[i].x() = points_1_normalized[i].x();
+            S1 * points_1[i].y() = points_1_normalized[i].y();
+        }
+
+        //Compute the average distance of the image points to the origin (SCALING):
+        double norm_avg_distance0 = 0;
+        double norm_avg_distance1 = 0;
+        for (int i = 0; i < points_0.size(); i++){
+            //Adds the value of points1[i] to the "avg_distance1" variable.
+            norm_avg_distance0 += (points_0_normalized[i] - centroid0).norm();
+            norm_avg_distance1 += (points_1_normalized[i] - centroid1).norm();
+        }
+        //Divide the sum of the points by the number of points to get the average, which is the average distance.
+        norm_avg_distance0 /= points_0.size();
+        norm_avg_distance1 /= points_1.size();
+
+        //CHECK:: The average distance of the transformed image points from the origin should be equal to sqrt(2).
+        if (norm_avg_distance0 != sqrt(2) || norm_avg_distance1 != sqrt(2)) {
+            // It's not correct, so we need to normalize the points
+            std::cout << "The average distance between the points and the origin is NOT sqrt(2) pixels!" << std::endl;
+        } else {
+            // It's correct, so we can continue
+            std::cout << "The average distance between the points and the origin is sqrt(2) pixels!" << std::endl;
         }
 
         //CHECK:: Print out the normalized points
-        std::cout<< "points_0_normalized = " << points_0_normalized << std::endl;
-        std::cout<< "points_1_normalized = " << points_1_normalized << std::endl;
+        std::cout<< "points_0_normalized = " << points_0_normalized[0] << std::endl;
+        std::cout<< "points_1_normalized = " << points_1_normalized[0] << std::endl;
 
         //Turn the 8 Vector2D points into a matrix of size 8x9.
         Matrix W (8,9);
@@ -225,14 +252,14 @@ bool Triangulation::triangulation(
         //P = [x1'x1, x1'y1, x1', y1'x1, y1'y1, y1', x1, y1, 1]
         //P = [x2'x2, x2'y2, x2', y2'x2, y2'y2, y2', x2, y2, 1]
         for (int i = 0; i < points_0.size(); i++){
-            W.set(i,0, points_0_normalized[i][0] * points_1_normalized[i][0]);
-            W.set(i,1, points_0_normalized[i][0] * points_1_normalized[i][1]);
-            W.set(i,2, points_0_normalized[i][0]);
-            W.set(i,3, points_0_normalized[i][1] * points_1_normalized[i][0]);
-            W.set(i,4, points_0_normalized[i][1] * points_1_normalized[i][1]);
-            W.set(i,5, points_0_normalized[i][1]);
-            W.set(i,6, points_0_normalized[i][0]);
-            W.set(i,7, points_0_normalized[i][1]);
+            W.set(i,0, points_0_normalized[i].x() * points_1_normalized[i].x());
+            W.set(i,1, points_0_normalized[i].y() * points_1_normalized[i].x());
+            W.set(i,2, points_1_normalized[i].x());
+            W.set(i,3, points_0_normalized[i].x() * points_1_normalized[i].y());
+            W.set(i,4, points_0_normalized[i].y() * points_1_normalized[i].y());
+            W.set(i,5, points_1_normalized[i].y());
+            W.set(i,6, points_0_normalized[i].x());
+            W.set(i,7, points_0_normalized[i].y());
             W.set(i,8, 1);
         }
 
@@ -260,21 +287,21 @@ bool Triangulation::triangulation(
         //6. Compute F using the inverse of the similarity transformation to Fq:
         //Finally, we can transform the new Fq back to the original coordinates using the inverse of the similarity transformation to compute F.
         //F = T2^T * Fq * T1
-        Matrix F;
-        F = T1.transpose() * Fq * T0;
+        // Matrix F;
+        // F = T1.transpose() * Fq * T0;
 
         //CHECK:: Print out F to see if its correct.
-        std::cout<< "F = " << F << std::endl;
+        // std::cout<< "F = " << F << std::endl;
 
         //7. Write the recovered relative pose into R and t  (the view will be updated as seen from the 2nd camera):
         //R = U * Rz * V^T
         //t = u3
-        R = U * D * V.transpose();
-        t = U.get_column(2);
+        // R = U * D * V.transpose();
+        // t = U.get_column(2);
 
         //CHECK:: Print out R and t to see if its correct.
-        std::cout<< "R = " << R << std::endl;
-        std::cout<< "t = " << t << std::endl;
+        // std::cout<< "R = " << R << std::endl;
+        // std::cout<< "t = " << t << std::endl;
 
 /*        double sumx0 = 0;
         double sumy0 = 0;
