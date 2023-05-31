@@ -199,7 +199,6 @@ bool Triangulation::triangulation(
         std::cout << "W = " << W << std::endl;
 
 
-
         // TODO:: Extract the right singular vector corresponding to the smallest singular value. Reshape it into a 3x3 matrix F_hat
         Matrix U(points_0.size(), points_0.size());
         Matrix V(9,9);
@@ -218,18 +217,18 @@ bool Triangulation::triangulation(
         }
         std::cout << "F_hat = " << F_hat << std::endl;
 
-        Matrix33 X,Y,Z;
+        Matrix33 A, B, C;
+        svd_decompose(F_hat, A, B, C);
 
-        svd_decompose(F_hat, X, Y, Z);
         // Step 1.5. Rank 2 enforcement
         // We can enforce the rank-2 constraint by setting the smallest singular value to 0.
-        Y.set(2,2,0);
-        std::cout << "Y = " << Y << std::endl;
+        B.set(2,2,0);
+        std::cout << "B = " << B << std::endl;
 
-        Matrix33 Fq = X * Y * Z.transpose();
-        std::cout << "Fq = " << Fq << std::endl;
+        Matrix33 Fq = A * B * C.transpose();
+        //std::cout << "Fq = " << Fq << std::endl;
 
-        // Step 1.6. Calculate T0, and T1 (what you called S0 and S1) think about how you are integrating it to F
+        // Step 1.6. Calculate T0, and T1.
         Matrix33 T0(sqrt(2) / avg_distance0, 0, -sqrt(2) / avg_distance0 * center0.x(),
                     0, sqrt(2) / avg_distance0, -sqrt(2) / avg_distance0 * center0.y(),
                     0, 0, 1);
@@ -237,33 +236,67 @@ bool Triangulation::triangulation(
                     0, sqrt(2) / avg_distance1, -sqrt(2) / avg_distance1 * center1.y(),
                     0, 0, 1);
 
-
-        // denormalize Fq to F
-
+        // Denormalize Fq to F
         Matrix33 F = T1.transpose() * Fq * T0;
-        std::cout << "F = " << F << std::endl;
 
+        // Step 2. Recover relative pose (i.e., R and t) from the fundamental matrix
 
-        // Step 1.7 scale scale invariant F where F(2,2)=1 (optional)
-
-
-
-
-       /* Matrix33 K (fx, s, cx,
+        // Step 2.1. Calculate E
+        // TODO:: Is K correct?
+        Matrix33 K (fx, 0, cx, // skew = 0 because the cross product is skew symmetric
                     0, fy, cy,
                     0,0,1);
-*/
+        Matrix33 E = K.transpose() * F * K;
+        std::cout << "E = " << E << std::endl;
+        Matrix33 X,Z;
+        // Enforce that the diagonal of Ydiag = (1,1,0)
+        // TODO:: Is this enforcement correct?
+        Matrix33 Y(1,0,0,
+                   0,1,0,
+                   0,0,0);
+        //std::cout << "Y = " << Y << std::endl;
+        svd_decompose(E, X, Y, Z); // X=U, Y=D, Z=V
+        //std::cout << "X = " << X << std::endl;
+        //std::cout << "Z = " << Z << std::endl;
 
+        // Step 2.2. Calculate 4 Rt settings from E
+        Matrix33 E_W(0, -1, 0,
+                     1, 0, 0,
+                     0, 0, 1);
+        Matrix33 E_Z(0, 1, 0,
+                     -1, 0, 0,
+                     0, 0, 0);
 
+        Matrix33 tx = X * E_Z * X.transpose();
+        std::cout << "tx = " << tx << std::endl;
+
+        Matrix33 R1 = X * E_W *Z.transpose();
+        Matrix33 R2 = X * E_W.transpose() *Z.transpose();
+        std::cout << "R1 = " << R1 << std::endl;
+        std::cout << "R2 = " << R2 << std::endl;
+
+        R1 *= determinant(R1);
+        R2 *= determinant(R2);
+        std::cout << "determinant of R1 = " << determinant(R1) << std::endl;
+        std::cout << "determinant of R2 = " << determinant(R2) << std::endl;
+
+        Vector3D t1 = X.get_column(X.cols() - 1);
+        Vector3D t2 = -X.get_column(X.cols() - 1);
+        std::cout << "t1 = " << t1 << std::endl;
+        std::cout << "t2 = " << t2 << std::endl;
+
+        // make M (p=MP) matrices for all pairs
+        /*Matrix34 M1 = K * R1 *t1;
+        Matrix34 M2 = K * R1 *t2;
+        Matrix34 M3 = K * R2 *t1;
+        Matrix34 M4 = K * R2 *t2;*/
         // TODO: Reconstruct 3D points. The main task is
         //      - triangulate a pair of image points (i.e., compute the 3D coordinates for each corresponding point pair)
-        // Step 2.1 calculate E and 4 Rt settings
+        // Step 2.2 triangulate and compute inliers (z values w.r.t. camera is positive)
 
-        // Matrix33 E = K.transpose() * F * K
-
-        // Step 2.2 triangulate and compute inliers
 
         // Step 2.3 choose best Rt setting
+        // max number of inliers
 
         // TODO: Don't forget to
         //          - write your recovered 3D points into 'points_3d' (so the viewer can visualize the 3D points for you);
