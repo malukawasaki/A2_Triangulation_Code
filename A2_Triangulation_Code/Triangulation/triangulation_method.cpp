@@ -201,9 +201,9 @@ bool Triangulation::triangulation(
 
 
         // TODO:: Extract the right singular vector corresponding to the smallest singular value. Reshape it into a 3x3 matrix F_hat
-        Matrix U(160, 160);
+        Matrix U(points_0.size(), points_0.size());
         Matrix V(9,9);
-        Matrix D(160,9);
+        Matrix D(points_0.size(),9);
         Matrix33 F_hat;
 
         svd_decompose(W, U, D, V);
@@ -218,13 +218,15 @@ bool Triangulation::triangulation(
         }
         std::cout << "F_hat = " << F_hat << std::endl;
 
-        svd_decompose(F_hat, U, D, V);
+        Matrix33 X,Y,Z;
+
+        svd_decompose(F_hat, X, Y, Z);
         // Step 1.5. Rank 2 enforcement
         // We can enforce the rank-2 constraint by setting the smallest singular value to 0.
-        D.set(2,2,0);
-        std::cout << "D = " << D << std::endl;
+        Y.set(2,2,0);
+        std::cout << "Y = " << Y << std::endl;
 
-        Matrix33 Fq = U * D * V.transpose();
+        Matrix33 Fq = X * Y * Z.transpose();
         std::cout << "Fq = " << Fq << std::endl;
 
         // Step 1.6. Calculate T0, and T1 (what you called S0 and S1) think about how you are integrating it to F
