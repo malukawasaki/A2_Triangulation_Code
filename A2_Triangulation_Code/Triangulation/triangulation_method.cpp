@@ -70,7 +70,7 @@ bool Triangulation::triangulation(
                  "\t    - make sure your code compiles and can reproduce your results without ANY modification.\n\n"
               << std::flush;
 
-    /// Below are a few examples showing some useful data structures and APIs.
+ /*   /// Below are a few examples showing some useful data structures and APIs.
 
     /// define a 2D vector/point
     Vector2D b(1.1, 2.2);
@@ -123,7 +123,7 @@ bool Triangulation::triangulation(
 
     ///For more functions of Matrix and Vector, please refer to 'matrix.h' and 'vector.h'
 
-    // TODO: delete all above example code in your final submission
+    // TODO: delete all above example code in your final submission*/
 
     //--------------------------------------------------------------------------------------------------------------
     // implementation starts ...
@@ -136,121 +136,54 @@ bool Triangulation::triangulation(
         std::cout << "Sizes of points match and are greater or equal to 8. This operation is possible"
                   << std::endl;
 
-        // TODO: Estimate relative pose of two views. This can be done by solving the following steps:
-        //      - estimate the fundamental matrix F;
-        //      - compute the essential matrix E;
-        //      - recover rotation R and t.
-
-        // TODO: Estimate the fundamental matrix F;
-        //Normalize the image points:
-        //Compute the centroid of the image points (TRANSLATION):
-        Vector2D centroid0(0,0);
-        Vector2D centroid1(0,0);
+        // Step 1. Estimate the fundamental matrix F;
+        // Step 1.1. Calculate the centers (corresponding pixel centers in each image separately)
+        Vector2D center0(0,0);
+        Vector2D center1(0,0);
 
         for (int i = 0; i < points_0.size(); i++){
-            centroid0 += points_0[i];
-            centroid1 += points_1[i];
+            center0+= points_0[i];
+            center1 += points_1[i];
         }
 
-        centroid0 /= points_0.size();
-        centroid1 /= points_1.size();
+        center0 /= points_0.size();
+        center1 /= points_1.size();
 
-        //Compute the average distance of the image points to the origin (SCALING):
+        std::cout << "Center0 = " << center0 << std::endl;
+        std::cout << "Center1 = " << center1 << std::endl;
+
+        // Step 1.2. Compute mean distance to center (in each image separately)
         double avg_distance0 = 0;
         double avg_distance1 = 0;
         for (int i = 0; i < points_0.size(); i++){
             //Adds the value of points1[i] to the "avg_distance1" variable.
-            avg_distance0 += (points_0[i] - centroid0).norm();
-            avg_distance1 += (points_1[i] - centroid1).norm();
+            avg_distance0 += (points_0[i] - center0).norm();
+            avg_distance1 += (points_1[i] - center1).norm();
         }
-        //Divide the sum of the points by the number of points to get the average, which is the average distance.
+
         avg_distance0 /= points_0.size();
         avg_distance1 /= points_1.size();
 
-        /*//CHECK:: The average distance of the transformed image points from the origin should be equal to sqrt(2).
-        if (avg_distance0 != sqrt(2) || avg_distance1 != sqrt(2)) {
-            // It's not correct, so we need to normalize the points
-            std::cout << "The average distance between the points and the origin is NOT sqrt(2) pixels!" << std::endl;
-        } else {
-            // It's correct, so we can continue
-            std::cout << "The average distance between the points and the origin is sqrt(2) pixels!" << std::endl;
-        }
-*/
-        //Compute the similarity transformation (translation + scaling):
+        std::cout << "ADis0 = " << avg_distance0 << std::endl;
+        std::cout << "Adis1 = " << avg_distance1 << std::endl;
 
-        //Scaling
-        Matrix33 S0, S1;
+        // Step 1.3. Compute scaling factor using average distance
+        double scaling_factor0 = sqrt(2)/avg_distance0;
+        double scaling_factor1 = sqrt(2)/avg_distance1;
 
-        S0.set_row(0, Vector3D(sqrt(2) / avg_distance0, 0, 0));
-        S0.set_row(1, Vector3D(0, sqrt(2) / avg_distance0, 0));
-        S0.set_row(2, Vector3D(0, 0, 1));
-
-        S1.set_row(0, Vector3D(sqrt(2) / avg_distance1, 0, 0));
-        S1.set_row(1, Vector3D(0, sqrt(2) / avg_distance1, 0));
-        S1.set_row(2, Vector3D(0, 0, 1));
-
-        //Translation
-        Matrix33 T0, T1;
-        T0.set_row(0, Vector3D(1, 0, -centroid0[0]));
-        T0.set_row(1, Vector3D(0, 1, -centroid0[1]));
-        T0.set_row(2, Vector3D(0, 0, 1));
-
-        T1.set_row(0, Vector3D(1, 0, -centroid1[0]));
-        T1.set_row(1, Vector3D(0, 1, -centroid1[1]));
-        T1.set_row(2, Vector3D(0, 0, 1));
-
-        //CHECK:: Print out T0 and T1 to check if it is correct
-        std::cout<< "T0 = " << T0 << std::endl;
-        std::cout<< "T1 = " << T1 << std::endl;
-        std::cout<< "S0 = " << S0 << std::endl;
-        std::cout<< "S1 = " << S1 << std::endl;
-
-        //Normalize the image points using T0 and T1:
-        std::vector<Vector2D> points_0_normalized;
-        std::vector<Vector2D> points_1_normalized;
-
-        //Translating x and y of points 0
-        for (int i = 0; i < points_0.size(); i++) {
-            T0 * points_0[i].x() = points_0_normalized[i].x();
-            T0 * points_0[i].y() = points_0_normalized[i].y();
-            T1 * points_1[i].x() = points_1_normalized[i].x();
-            T1 * points_1[i].y() = points_1_normalized[i].y();
-            S0 * points_0[i].x() = points_0_normalized[i].x();
-            S0 * points_0[i].y() = points_0_normalized[i].y();
-            S1 * points_1[i].x() = points_1_normalized[i].x();
-            S1 * points_1[i].y() = points_1_normalized[i].y();
-        }
-
-        //Compute the average distance of the image points to the origin (SCALING):
-        double norm_avg_distance0 = 0;
-        double norm_avg_distance1 = 0;
+        // Step 1.4. Compute initial Fundamental matrix with norm points
+        std::vector<Vector2D> points_0_normalized(points_0.size());
+        std::vector<Vector2D> points_1_normalized(points_1.size());
         for (int i = 0; i < points_0.size(); i++){
-            //Adds the value of points1[i] to the "avg_distance1" variable.
-            norm_avg_distance0 += (points_0_normalized[i] - centroid0).norm();
-            norm_avg_distance1 += (points_1_normalized[i] - centroid1).norm();
-        }
-        //Divide the sum of the points by the number of points to get the average, which is the average distance.
-        norm_avg_distance0 /= points_0.size();
-        norm_avg_distance1 /= points_1.size();
-
-        //CHECK:: The average distance of the transformed image points from the origin should be equal to sqrt(2).
-        if (norm_avg_distance0 != sqrt(2) || norm_avg_distance1 != sqrt(2)) {
-            // It's not correct, so we need to normalize the points
-            std::cout << "The average distance between the points and the origin is NOT sqrt(2) pixels!" << std::endl;
-        } else {
-            // It's correct, so we can continue
-            std::cout << "The average distance between the points and the origin is sqrt(2) pixels!" << std::endl;
+            points_0_normalized[i].x() = (points_0[i].x() - center0.x()) * scaling_factor0;
+            points_0_normalized[i].y() = (points_0[i].y() - center0.y()) * scaling_factor0; // I changed the x's to y's in this line
+            points_1_normalized[i].x() = (points_1[i].x() - center1.x()) * scaling_factor1;
+            points_1_normalized[i].y() = (points_1[i].y() - center1.y()) * scaling_factor1; // I changed the x's to y's in this line
         }
 
-        //CHECK:: Print out the normalized points
-        std::cout<< "points_0_normalized = " << points_0_normalized[0] << std::endl;
-        std::cout<< "points_1_normalized = " << points_1_normalized[0] << std::endl;
-
-        //Turn the 8 Vector2D points into a matrix of size 8x9.
-        Matrix W (8,9);
-        //Fill in the matrix W with the values of the normalized points.
-        //P = [x1'x1, x1'y1, x1', y1'x1, y1'y1, y1', x1, y1, 1]
-        //P = [x2'x2, x2'y2, x2', y2'x2, y2'y2, y2', x2, y2, 1]
+        int size = int(points_0.size());
+        Matrix W (size,9);
+        //W = [xi'xi, xi'yi, xi', yi'xi, yi'yi, yi', xi, yi, 1]
         for (int i = 0; i < points_0.size(); i++){
             W.set(i,0, points_0_normalized[i].x() * points_1_normalized[i].x());
             W.set(i,1, points_0_normalized[i].y() * points_1_normalized[i].x());
@@ -263,97 +196,72 @@ bool Triangulation::triangulation(
             W.set(i,8, 1);
         }
 
-        //5. Compute Fq (estimation of F) using the normalized points:
-        //WFq = 0 …where W is a Nx9 matrix derived from Nx8 correspondences and Fq is the values of the fundamental matrix we desire.
-        //Fq = UDV^T …where U and V are 3x3 matrices and D is a 3x3 diagonal matrix.
+        std::cout << "W = " << W << std::endl;
 
-        Matrix33 U, V, D;
+
+
+        // TODO:: Extract the right singular vector corresponding to the smallest singular value. Reshape it into a 3x3 matrix F_hat
+        Matrix U(160, 160);
+        Matrix V(9,9);
+        Matrix D(160,9);
+        Matrix33 F_hat;
+
         svd_decompose(W, U, D, V);
 
-        //CHECK:: Print out U, D, and V to check if it is correct
-        std::cout<< "U = " << U << std::endl;
-        std::cout<< "D = " << D << std::endl;
-        std::cout<< "V = " << V << std::endl;
 
+        // Populating F_hat with the last column of V.
+        int col_index = 8;
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                F_hat(i, j) = V(i * 3 + j, col_index);
+            }
+        }
+        std::cout << "F_hat = " << F_hat << std::endl;
+
+        svd_decompose(F_hat, U, D, V);
+        // Step 1.5. Rank 2 enforcement
         // We can enforce the rank-2 constraint by setting the smallest singular value to 0.
         D.set(2,2,0);
-        //CHECK:: Print out D to see if its correct.
         std::cout << "D = " << D << std::endl;
 
         Matrix33 Fq = U * D * V.transpose();
-        //CHECK:: Print out Fq to see if its correct.
         std::cout << "Fq = " << Fq << std::endl;
 
-        //6. Compute F using the inverse of the similarity transformation to Fq:
-        //Finally, we can transform the new Fq back to the original coordinates using the inverse of the similarity transformation to compute F.
-        //F = T2^T * Fq * T1
-        // Matrix F;
-        // F = T1.transpose() * Fq * T0;
-
-        //CHECK:: Print out F to see if its correct.
-        // std::cout<< "F = " << F << std::endl;
-
-        //7. Write the recovered relative pose into R and t  (the view will be updated as seen from the 2nd camera):
-        //R = U * Rz * V^T
-        //t = u3
-        // R = U * D * V.transpose();
-        // t = U.get_column(2);
-
-        //CHECK:: Print out R and t to see if its correct.
-        // std::cout<< "R = " << R << std::endl;
-        // std::cout<< "t = " << t << std::endl;
-
-/*        double sumx0 = 0;
-        double sumy0 = 0;
-        double sumx1 = 0;
-        double sumy1 = 0;
-        for (int i = 0; i < points_0.size(); i++) {
-            sumx0 = sumx0 + points_0[i].x();
-            sumy0 = sumy0 + points_0[i].y();
-            sumx1 = sumx1 + points_1[i].x();
-            sumy1 = sumy1 + points_1[i].y();}
-
-        double tx0 = sumx0 / points_0.size();
-        double ty0 = sumy0 / points_0.size();
-        double tx1 = sumx1 / points_1.size();
-        double ty1 = sumy1 / points_1.size();
-        Vector2D s0;
-        Vector2D s1;
-
-        for (int i = 0; i < points_0.size(); i++) {
-            Vector2D mc0[i];
-            Vector2D mc1[i];
-            Vector2D dc0[i];
-            Vector2D dc1[i];
-            mc0[i].x() = points_0[i].x() - tx0;
-            mc0[i].y() = points_0[i].y() - ty0;
-            mc1[i].x() = points_1[i].x() - tx1;
-            mc1[i].y() = points_1[i].y() - ty1;
-            dc0[i].x() += sqrt(pow(mc0[i].x(),2));
-            dc0[i].y() += sqrt(pow(mc0[i].y(),2));
-            dc1[i].x() += sqrt(pow(mc1[i].x(),2));
-            dc1[i].y() += sqrt(pow(mc1[i].y(),2));
-            s0[i] = sqrt(2)/dc0[i];
-            //TODO: Check if the one bellow is a way calculate s
-            s1[i] = dot(1.0/sqrt(2),dc1[i]);
-        }
-
-        double s = sqrt(dc1[0])/1.0
-
-        // TODO: Fix s
-        // TODO: Do we need two matrices? (i.e. T0 and T1 to use tx0 and tx1?)
-        Matrix33 T0(s0, 0, -s0*tx0,
-                    0, s0, -s0*ty0,
+        // Step 1.6. Calculate T0, and T1 (what you called S0 and S1) think about how you are integrating it to F
+        Matrix33 T0(sqrt(2) / avg_distance0, 0, -sqrt(2) / avg_distance0 * center0.x(),
+                    0, sqrt(2) / avg_distance0, -sqrt(2) / avg_distance0 * center0.y(),
+                    0, 0, 1);
+        Matrix33 T1(sqrt(2) / avg_distance1, 0, -sqrt(2) / avg_distance1 * center1.x(),
+                    0, sqrt(2) / avg_distance1, -sqrt(2) / avg_distance1 * center1.y(),
                     0, 0, 1);
 
-        Matrix33 T1(s1, 0, -s1*tx1,
-                    0, s1, -s1*ty1,
-                    0, 0, 1);*/
 
-        //F = F'*T0*T1?
+        // denormalize Fq to F
+
+        Matrix33 F = T1.transpose() * Fq * T0;
+        std::cout << "F = " << F << std::endl;
+
+
+        // Step 1.7 scale scale invariant F where F(2,2)=1 (optional)
+
+
+
+
+       /* Matrix33 K (fx, s, cx,
+                    0, fy, cy,
+                    0,0,1);
+*/
+
 
         // TODO: Reconstruct 3D points. The main task is
         //      - triangulate a pair of image points (i.e., compute the 3D coordinates for each corresponding point pair)
+        // Step 2.1 calculate E and 4 Rt settings
+
+        // Matrix33 E = K.transpose() * F * K
+
+        // Step 2.2 triangulate and compute inliers
+
+        // Step 2.3 choose best Rt setting
 
         // TODO: Don't forget to
         //          - write your recovered 3D points into 'points_3d' (so the viewer can visualize the 3D points for you);
