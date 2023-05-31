@@ -138,7 +138,8 @@ bool Triangulation::triangulation(
         std::cout << "Sizes of points match and are greater or equal to 8. This operation is possible"
                   << std::endl;
 
-        // Step 1. Estimate the fundamental matrix F;
+        // Step 1. Estimate the fundamental matrix F
+
         // Step 1.1. Calculate the centers (corresponding pixel centers in each image separately)
         Vector2D center0(0,0);
         Vector2D center1(0,0);
@@ -240,17 +241,59 @@ bool Triangulation::triangulation(
 
         // Denormalize Fq to F
         Matrix33 F = T1.transpose() * Fq * T0;
-        std::cout << "F = " << F << std::endl;
 
-        //
+        // Step 2. Recover relative pose (i.e., R and t) from the fundamental matrix
 
+        // Step 2.1. Calculate E
+        // TODO:: Is K correct?
+        Matrix33 K (fx, 0, cx, // skew = 0 because the cross product is skew symmetric
+                    0, fy, cy,
+                    0,0,1);
+        Matrix33 E = K.transpose() * F * K;
+        std::cout << "E = " << E << std::endl;
+        Matrix33 X,Z;
+        // Enforce that the diagonal of Ydiag = (1,1,0)
+        // TODO:: Is this enforcement correct?
+        Matrix33 Y(1,0,0,
+                   0,1,0,
+                   0,0,0);
+        //std::cout << "Y = " << Y << std::endl;
+        svd_decompose(E, X, Y, Z); // X=U, Y=D, Z=V
+        //std::cout << "X = " << X << std::endl;
+        //std::cout << "Z = " << Z << std::endl;
 
-        /* Matrix33 K (fx, s, cx,
-                     0, fy, cy,
-                     0,0,1);
- */
+        // Step 2.2. Calculate 4 Rt settings from E
+        Matrix33 E_W(0, -1, 0,
+                    1, 0, 0,
+                    0, 0, 1);
+        Matrix33 E_Z(0, 1, 0,
+                     -1, 0, 0,
+                     0, 0, 0);
 
+        Matrix33 tx = X * E_Z * X.transpose();
+        std::cout << "tx = " << tx << std::endl;
+        Matrix33 R1 = X * E_W *Z.transpose();
+        Matrix33 R2 = X * E_W.transpose() *Z.transpose();
+        std::cout << "R1 = " << R1 << std::endl;
+        std::cout << "R2 = " << R2 << std::endl;
+        R1 *= determinant(R1);
+        R2 *= determinant(R2);
+        std::cout << "determinant of R1 = " << determinant(R1) << std::endl;
+        std::cout << "determinant of R2 = " << determinant(R2) << std::endl;
+        Vector3D t1 = X.get_column(X.cols() - 1);
+        Vector3D t2 = -X.get_column(X.cols() - 1);
+        std::cout << "t1 = " << t1 << std::endl;
+        std::cout << "t2 = " << t2 << std::endl;
 
+        /*pair1 = R1 t1;
+        pair2 = R1 t2;
+        pair3 = R2 t1;
+        pair4 = R2 t2; */
+
+        /*Matrix34 M1 = K * R1 *t1;
+        Matrix34 M2 = K * R1 *t2;
+        Matrix34 M3 = K * R2 *t1;
+        Matrix34 M4 = K * R2 *t2;*/
         // TODO: Reconstruct 3D points. The main task is
         //      - triangulate a pair of image points (i.e., compute the 3D coordinates for each corresponding point pair)
         // Step 2.1 calculate E and 4 Rt settings
