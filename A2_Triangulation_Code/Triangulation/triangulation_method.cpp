@@ -152,8 +152,8 @@ bool Triangulation::triangulation(
         center0 /= points_0.size();
         center1 /= points_1.size();
 
-        std::cout << "Center0 = " << center0 << std::endl;
-        std::cout << "Center1 = " << center1 << std::endl;
+        /*std::cout << "Center0 = " << center0 << std::endl;
+        std::cout << "Center1 = " << center1 << std::endl;*/
 
         // Step 1.2. Compute mean distance to center (in each image separately)
         double avg_distance0 = 0;
@@ -167,8 +167,8 @@ bool Triangulation::triangulation(
         avg_distance0 /= points_0.size();
         avg_distance1 /= points_1.size();
 
-        std::cout << "ADis0 = " << avg_distance0 << std::endl;
-        std::cout << "Adis1 = " << avg_distance1 << std::endl;
+        /*std::cout << "ADis0 = " << avg_distance0 << std::endl;
+        std::cout << "Adis1 = " << avg_distance1 << std::endl;*/
 
         // Step 1.3. Compute scaling factor using average distance
         double scaling_factor0 = sqrt(2)/avg_distance0;
@@ -199,7 +199,7 @@ bool Triangulation::triangulation(
             W.set(i,8, 1);
         }
 
-        std::cout << "W = " << W << std::endl;
+        //std::cout << "W = " << W << std::endl;
 
         //Extract the right singular vector corresponding to the smallest singular value. Reshape it into a 3x3 matrix F_hat
         int n_cols = W.cols();
@@ -218,7 +218,7 @@ bool Triangulation::triangulation(
                 F_hat(i, j) = V(i * 3 + j, col_index);
             }
         }
-        std::cout << "F_hat = " << F_hat << std::endl;
+        //std::cout << "F_hat = " << F_hat << std::endl;
 
         Matrix33 A, B, C;
         svd_decompose(F_hat, A, B, C);
@@ -229,7 +229,7 @@ bool Triangulation::triangulation(
         //std::cout << "B = " << B << std::endl;
 
         Matrix33 Fq = A * B * C.transpose();
-        std::cout << "Fq = " << Fq << std::endl;
+        //std::cout << "Fq = " << Fq << std::endl;
 
         // Step 1.6. Calculate T0, and T1.
         Matrix33 T0(sqrt(2) / avg_distance0, 0, -sqrt(2) / avg_distance0 * center0.x(),
@@ -271,7 +271,7 @@ bool Triangulation::triangulation(
                      0, 0, 0);
 
         Matrix33 tx = X * E_Z * X.transpose();
-        std::cout << "tx = " << tx << std::endl;
+        //std::cout << "tx = " << tx << std::endl;
 
         Matrix33 R1 = X * E_W *Z.transpose();
         Matrix33 R2 = X * E_W.transpose() *Z.transpose();
@@ -280,15 +280,15 @@ bool Triangulation::triangulation(
 
         R1 *= determinant(R1);
         R2 *= determinant(R2);
-        std::cout << "determinant of R1 = " << determinant(R1) << std::endl;
-        std::cout << "determinant of R2 = " << determinant(R2) << std::endl;
+        /*std::cout << "determinant of R1 = " << determinant(R1) << std::endl;
+        std::cout << "determinant of R2 = " << determinant(R2) << std::endl;*/
 
         Vector3D t1 = X.get_column(X.cols() - 1);
         Vector3D t2 = -X.get_column(X.cols() - 1);
         std::cout << "t1 = " << t1 << std::endl;
         std::cout << "t2 = " << t2 << std::endl;
 
-        std::cout << "Test: " << R1(0,0) << std::endl;
+        //std::cout << "Test: " << R1(0,0) << std::endl;
 
         // Create matrices Rt with the 4 different combinations
         Matrix34 Rt1(R1(0,0), R1(0,1),R1(0,2), t1.x(),
@@ -417,7 +417,6 @@ bool Triangulation::triangulation(
         // Step 2.2 triangulate and compute inliers (z values w.r.t. camera is positive)
 
         //SVD the different A matrices to find the value of P
-        //TODO:: All matrices are 4x4 because A is 4x4??
         Matrix44 H1, I1, J1;
         Matrix44 H2, I2, J2;
         Matrix44 H3, I3, J3;
@@ -428,11 +427,11 @@ bool Triangulation::triangulation(
         svd_decompose(A3,H3,I3,J3);
         svd_decompose(A4,H4,I4,J4);
 
-        //P is the last column of H (U in the notes)
-        Vector3D P1 = H1.get_column(H1.cols() - 1);
-        Vector3D P2 = H2.get_column(H2.cols() - 1);
-        Vector3D P3 = H3.get_column(H3.cols() - 1);
-        Vector3D P4 = H4.get_column(H4.cols() - 1);
+        //P is the last column of J (V in the notes)
+        Vector4D P1 = J1.get_column(J1.cols() - 1);
+        Vector4D P2 = J2.get_column(J2.cols() - 1);
+        Vector4D P3 = J3.get_column(J3.cols() - 1);
+        Vector4D P4 = J4.get_column(J4.cols() - 1);
 
         //TODO: From this, P1 and P2 have z positive but they are the same. Is this correct?
         //TODO: Conclusion is R1 and t1/t2?
