@@ -285,10 +285,33 @@ bool Triangulation::triangulation(
         std::cout << "t1 = " << t1 << std::endl;
         std::cout << "t2 = " << t2 << std::endl;
 
-        /*pair1 = R1 t1;
-        pair2 = R1 t2;
-        pair3 = R2 t1;
-        pair4 = R2 t2; */
+        Matrix34 Rt1(R1(1,1), R1(1,2),R1(1,3), t1.x(),
+                     R1(2,1), R1(2,2),R1(2,3), t1.y(),
+                     R1(3,1), R1(3,2),R1(3,3), t1.z());
+
+        Matrix34 Rt2(R1(1,1), R1(1,2),R1(1,3), t2.x(),
+                     R1(2,1), R1(2,2),R1(2,3), t2.y(),
+                     R1(3,1), R1(3,2),R1(3,3), t2.z());
+
+        Matrix34 Rt3(R2(1,1), R2(1,2),R2(1,3), t1.x(),
+                     R2(2,1), R2(2,2),R2(2,3), t1.y(),
+                     R2(3,1), R2(3,2),R2(3,3), t1.z());
+
+        Matrix34 Rt4(R2(1,1), R2(1,2),R2(1,3), t2.x(),
+                     R2(2,1), R2(2,2),R2(2,3), t2.y(),
+                     R2(3,1), R2(3,2),R2(3,3), t2.z());
+
+        Matrix34 M1, M2, M3, M4;
+        M1 = K * Rt1;
+        M2 = K * Rt2;
+        M3 = K * Rt3;
+        M4 = K * Rt4;
+
+
+
+
+
+
 
         /*Matrix34 M1 = K * R1 *t1;
         Matrix34 M2 = K * R1 *t2;
