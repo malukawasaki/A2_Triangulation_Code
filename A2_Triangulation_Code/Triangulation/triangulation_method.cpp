@@ -226,7 +226,7 @@ bool Triangulation::triangulation(
         // Step 1.5. Rank 2 enforcement
         // We can enforce the rank-2 constraint by setting the smallest singular value to 0.
         B.set(2,2,0);
-        std::cout << "B = " << B << std::endl;
+        //std::cout << "B = " << B << std::endl;
 
         Matrix33 Fq = A * B * C.transpose();
         std::cout << "Fq = " << Fq << std::endl;
@@ -250,7 +250,7 @@ bool Triangulation::triangulation(
                     0, fy, cy,
                     0,0,1);
         Matrix33 E = K.transpose() * F * K;
-        std::cout << "E = " << E << std::endl;
+        //std::cout << "E = " << E << std::endl;
         Matrix33 X,Z;
         // Enforce that the diagonal of Ydiag = (1,1,0)
         // TODO:: Is this enforcement correct?
@@ -272,51 +272,175 @@ bool Triangulation::triangulation(
 
         Matrix33 tx = X * E_Z * X.transpose();
         std::cout << "tx = " << tx << std::endl;
+
         Matrix33 R1 = X * E_W *Z.transpose();
         Matrix33 R2 = X * E_W.transpose() *Z.transpose();
         std::cout << "R1 = " << R1 << std::endl;
         std::cout << "R2 = " << R2 << std::endl;
+
         R1 *= determinant(R1);
         R2 *= determinant(R2);
         std::cout << "determinant of R1 = " << determinant(R1) << std::endl;
         std::cout << "determinant of R2 = " << determinant(R2) << std::endl;
+
         Vector3D t1 = X.get_column(X.cols() - 1);
         Vector3D t2 = -X.get_column(X.cols() - 1);
         std::cout << "t1 = " << t1 << std::endl;
         std::cout << "t2 = " << t2 << std::endl;
 
-        Matrix34 Rt1(R1(1,1), R1(1,2),R1(1,3), t1.x(),
-                     R1(2,1), R1(2,2),R1(2,3), t1.y(),
-                     R1(3,1), R1(3,2),R1(3,3), t1.z());
+        std::cout << "Test: " << R1(0,0) << std::endl;
 
-        Matrix34 Rt2(R1(1,1), R1(1,2),R1(1,3), t2.x(),
-                     R1(2,1), R1(2,2),R1(2,3), t2.y(),
-                     R1(3,1), R1(3,2),R1(3,3), t2.z());
+        // Create matrices Rt with the 4 different combinations
+        Matrix34 Rt1(R1(0,0), R1(0,1),R1(0,2), t1.x(),
+                     R1(1,0), R1(1,1),R1(1,2), t1.y(),
+                     R1(2,0), R1(2,1),R1(2,2), t1.z());
 
-        Matrix34 Rt3(R2(1,1), R2(1,2),R2(1,3), t1.x(),
-                     R2(2,1), R2(2,2),R2(2,3), t1.y(),
-                     R2(3,1), R2(3,2),R2(3,3), t1.z());
+        Matrix34 Rt2(R1(0,0), R1(0,1),R1(0,2), t2.x(),
+                     R1(1,0), R1(1,1),R1(1,2), t2.y(),
+                     R1(2,0), R1(2,1),R1(2,2), t2.z());
 
-        Matrix34 Rt4(R2(1,1), R2(1,2),R2(1,3), t2.x(),
-                     R2(2,1), R2(2,2),R2(2,3), t2.y(),
-                     R2(3,1), R2(3,2),R2(3,3), t2.z());
+        Matrix34 Rt3(R2(0,0), R2(0,1),R2(0,2), t1.x(),
+                     R2(1,0), R2(1,1),R2(1,2), t1.y(),
+                     R2(2,0), R2(2,1),R2(2,2), t1.z());
 
-        Matrix34 M1, M2, M3, M4;
-        M1 = K * Rt1;
-        M2 = K * Rt2;
-        M3 = K * Rt3;
-        M4 = K * Rt4;
+        Matrix34 Rt4(R2(0,0), R2(0,1),R2(0,2), t2.x(),
+                     R2(1,0), R2(1,1),R2(1,2), t2.y(),
+                     R2(2,0), R2(2,1),R2(2,2), t2.z());
 
 
+        // M0 refers to M = K[I0]
+        // TODO:: There is something wrong with M0. It does not print!
+        Matrix34 M0_dummy(1, 0, 0, 0,
+                          0, 1, 0, 0,
+                          0, 0, 1, 0);
 
+        Matrix34 M0;
+        M0 = K * M0_dummy;
 
+        // M1, M2, M3 and M4 refer to M' = K * Rt
+        Matrix34 M1 = K * Rt1;
+        Matrix34 M2 = K * Rt2;
+        Matrix34 M3 = K * Rt3;
+        Matrix34 M4 = K * Rt4;
 
+        // Create matrices A = [xm3^T - m1^T, ym3^T - m2^T, x'm'3^T - m'1^T, y'm'3^T - m'2^T]
+        // TODO:: Make this shorter?
+        Matrix44 A1, A2, A3, A4;
+        for (int i = 0; i < points_0.size(); i++) {
 
+            // Populate A1 using M1
+            A1(0, 0) = points_0[i].x() * M0(2, 0) - M0(0, 0);
+            A1(0, 1) = points_0[i].x() * M0(2, 1) - M0(0, 1);
+            A1(0, 2) = points_0[i].x() * M0(2, 2) - M0(0, 2);
+            A1(0, 3) = points_0[i].x() * M0(2, 3) - M0(0, 3);
 
-        /*Matrix34 M1 = K * R1 *t1;
-        Matrix34 M2 = K * R1 *t2;
-        Matrix34 M3 = K * R2 *t1;
-        Matrix34 M4 = K * R2 *t2;*/
+            A1(1, 0) = points_0[i].y() * M0(2, 0) - M0(1, 0);
+            A1(1, 1) = points_0[i].y() * M0(2, 1) - M0(1, 1);
+            A1(1, 2) = points_0[i].y() * M0(2, 2) - M0(1, 2);
+            A1(1, 3) = points_0[i].y() * M0(2, 3) - M0(1, 3);
+
+            A1(2, 0) = points_1[i].x() * M1(2, 0) - M1(0, 0);
+            A1(2, 1) = points_1[i].x() * M1(2, 1) - M1(0, 1);
+            A1(2, 2) = points_1[i].x() * M1(2, 2) - M1(0, 2);
+            A1(2, 3) = points_1[i].x() * M1(2, 3) - M1(0, 3);
+
+            A1(3, 0) = points_1[i].y() * M1(2, 0) - M1(1, 0);
+            A1(3, 1) = points_1[i].y() * M1(2, 1) - M1(1, 1);
+            A1(3, 2) = points_1[i].y() * M1(2, 2) - M1(1, 2);
+            A1(3, 3) = points_1[i].y() * M1(2, 3) - M1(1, 3);
+
+            // Populate A2 using M2
+            A2(0, 0) = points_0[i].x() * M0(2, 0) - M0(0, 0);
+            A2(0, 1) = points_0[i].x() * M0(2, 1) - M0(0, 1);
+            A2(0, 2) = points_0[i].x() * M0(2, 2) - M0(0, 2);
+            A2(0, 3) = points_0[i].x() * M0(2, 3) - M0(0, 3);
+
+            A2(1, 0) = points_0[i].y() * M0(2, 0) - M0(1, 0);
+            A2(1, 1) = points_0[i].y() * M0(2, 1) - M0(1, 1);
+            A2(1, 2) = points_0[i].y() * M0(2, 2) - M0(1, 2);
+            A2(1, 3) = points_0[i].y() * M0(2, 3) - M0(1, 3);
+
+            A2(2, 0) = points_1[i].x() * M2(2, 0) - M2(0, 0);
+            A2(2, 1) = points_1[i].x() * M2(2, 1) - M2(0, 1);
+            A2(2, 2) = points_1[i].x() * M2(2, 2) - M2(0, 2);
+            A2(2, 3) = points_1[i].x() * M2(2, 3) - M2(0, 3);
+
+            A2(3, 0) = points_1[i].y() * M2(2, 0) - M2(1, 0);
+            A2(3, 1) = points_1[i].y() * M2(2, 1) - M2(1, 1);
+            A2(3, 2) = points_1[i].y() * M2(2, 2) - M2(1, 2);
+            A2(3, 3) = points_1[i].y() * M2(2, 3) - M2(1, 3);
+
+            // Populate A3 using M3
+            A3(0, 0) = points_0[i].x() * M0(2, 0) - M0(0, 0);
+            A3(0, 1) = points_0[i].x() * M0(2, 1) - M0(0, 1);
+            A3(0, 2) = points_0[i].x() * M0(2, 2) - M0(0, 2);
+            A3(0, 3) = points_0[i].x() * M0(2, 3) - M0(0, 3);
+
+            A3(1, 0) = points_0[i].y() * M0(2, 0) - M0(1, 0);
+            A3(1, 1) = points_0[i].y() * M0(2, 1) - M0(1, 1);
+            A3(1, 2) = points_0[i].y() * M0(2, 2) - M0(1, 2);
+            A3(1, 3) = points_0[i].y() * M0(2, 3) - M0(1, 3);
+
+            A3(2, 0) = points_1[i].x() * M3(2, 0) - M3(0, 0);
+            A3(2, 1) = points_1[i].x() * M3(2, 1) - M3(0, 1);
+            A3(2, 2) = points_1[i].x() * M3(2, 2) - M3(0, 2);
+            A3(2, 3) = points_1[i].x() * M3(2, 3) - M3(0, 3);
+
+            A3(3, 0) = points_1[i].y() * M3(2, 0) - M3(1, 0);
+            A3(3, 1) = points_1[i].y() * M3(2, 1) - M3(1, 1);
+            A3(3, 2) = points_1[i].y() * M3(2, 2) - M3(1, 2);
+            A3(3, 3) = points_1[i].y() * M3(2, 3) - M3(1, 3);
+
+            // Populate A4 using M4
+            A4(0, 0) = points_0[i].x() * M0(2, 0) - M0(0, 0);
+            A4(0, 1) = points_0[i].x() * M0(2, 1) - M0(0, 1);
+            A4(0, 2) = points_0[i].x() * M0(2, 2) - M0(0, 2);
+            A4(0, 3) = points_0[i].x() * M0(2, 3) - M0(0, 3);
+
+            A4(1, 0) = points_0[i].y() * M0(2, 0) - M0(1, 0);
+            A4(1, 1) = points_0[i].y() * M0(2, 1) - M0(1, 1);
+            A4(1, 2) = points_0[i].y() * M0(2, 2) - M0(1, 2);
+            A4(1, 3) = points_0[i].y() * M0(2, 3) - M0(1, 3);
+
+            A4(2, 0) = points_1[i].x() * M4(2, 0) - M4(0, 0);
+            A4(2, 1) = points_1[i].x() * M4(2, 1) - M4(0, 1);
+            A4(2, 2) = points_1[i].x() * M4(2, 2) - M4(0, 2);
+            A4(2, 3) = points_1[i].x() * M4(2, 3) - M4(0, 3);
+
+            A4(3, 0) = points_1[i].y() * M4(2, 0) - M4(1, 0);
+            A4(3, 1) = points_1[i].y() * M4(2, 1) - M4(1, 1);
+            A4(3, 2) = points_1[i].y() * M4(2, 2) - M4(1, 2);
+            A4(3, 3) = points_1[i].y() * M4(2, 3) - M4(1, 3);
+
+        }
+
+        // Step 2.2 triangulate and compute inliers (z values w.r.t. camera is positive)
+
+        //SVD the different A matrices to find the value of P
+        //TODO:: All matrices are 4x4 because A is 4x4??
+        Matrix44 H1, I1, J1;
+        Matrix44 H2, I2, J2;
+        Matrix44 H3, I3, J3;
+        Matrix44 H4, I4, J4;
+
+        svd_decompose(A1,H1,I1,J1); // H=U, I=D, J=V
+        svd_decompose(A2,H2,I2,J2);
+        svd_decompose(A3,H3,I3,J3);
+        svd_decompose(A4,H4,I4,J4);
+
+        //P is the last column of H (U in the notes)
+        Vector3D P1 = H1.get_column(H1.cols() - 1);
+        Vector3D P2 = H2.get_column(H2.cols() - 1);
+        Vector3D P3 = H3.get_column(H3.cols() - 1);
+        Vector3D P4 = H4.get_column(H4.cols() - 1);
+
+        //TODO: From this, P1 and P2 have z positive but they are the same. Is this correct?
+        //TODO: Conclusion is R1 and t1/t2?
+        std::cout << "P1 =" << P1 << std::endl;
+        std::cout << "P2 =" << P2 << std::endl;
+        std::cout << "P3 =" << P3 << std::endl;
+        std::cout << "P4 =" << P4 << std::endl;
+
         // TODO: Reconstruct 3D points. The main task is
         //      - triangulate a pair of image points (i.e., compute the 3D coordinates for each corresponding point pair)
         // Step 2.1 calculate E and 4 Rt settings
@@ -326,169 +450,6 @@ bool Triangulation::triangulation(
         // Step 2.2 triangulate and compute inliers
 
         // Step 2.3 choose best Rt setting
-
-        // TODO: Don't forget to
-        //          - write your recovered 3D points into 'points_3d' (so the viewer can visualize the 3D points for you);
-        //          - write the recovered relative pose into R and t (the view will be updated as seen from the 2nd camera,
-        //            which can help you check if R and t are correct).
-        //       You must return either 'true' or 'false' to indicate whether the triangulation was successful (so the
-        //       viewer will be notified to visualize the 3D points and update the view).
-        //       There are a few cases you should return 'false' instead, for example:
-        //          - function not implemented yet;
-        //          - input not valid (e.g., not enough points, point numbers don't match);
-        //          - encountered failure in any step.
-
-        // Step 1.5. Rank 2 enforcement
-
-
-        // Step 1.6. Calculate T1, and T2 (what you called S0 and S1) think about how you are integrating it to F
-        /*//Scaling and translating
-        Matrix33 S0(sqrt(2) / avg_distance0, 0, -sqrt(2) / avg_distance0 * center0[0],
-                0, sqrt(2) / avg_distance0, -sqrt(2) / avg_distance0 * center0[1],
-                0, 0, 1);
-        Matrix33 S1(sqrt(2) / avg_distance1, 0, -sqrt(2) / avg_distance1 * center1[0],
-                0, sqrt(2) / avg_distance1, -sqrt(2) / avg_distance1 * center1[1],
-                0, 0, 1);*/
-
-        //Nial said we can take this out
-        /*Matrix33 T0(1,0, -centroid0[0],
-                    0, 1, -centroid0[1],
-                    0, 0, 1);
-        Matrix33 T1(1, 0, -centroid1[0],
-                    0, 1, -centroid1[1],
-                    0, 0, 1);*/
-
-        //CHECK:: Print out T0 and T1 to check if it is correct
-
-       /* // Normalize the image points using scaling and translating;
-        std::vector<Vector2D> points_0_normalized;
-        std::vector<Vector2D> points_1_normalized;
-        points_0_normalized.resize(points_0.size());
-        points_1_normalized.resize(points_0.size());
-
-        for (int i = 0; i < points_0.size(); i++) {
-            Vector3D p0_homogeneous(points_0[i].x(), points_0[i].y(), 1);
-            Vector3D p0_normalized_homogeneous = S0 * p0_homogeneous;
-            points_0_normalized[i] = Vector2D(p0_normalized_homogeneous.x() / p0_normalized_homogeneous.z(),
-                                              p0_normalized_homogeneous.y() / p0_normalized_homogeneous.z());
-
-            Vector3D p1_homogeneous(points_1[i].x(), points_1[i].y(), 1);
-            Vector3D p1_normalized_homogeneous = S1 * p1_homogeneous;
-            points_1_normalized[i] = Vector2D(p1_normalized_homogeneous.x() / p1_normalized_homogeneous.z(),
-                                              p1_normalized_homogeneous.y() / p1_normalized_homogeneous.z());
-        }*/
-
-        // Compute the centroid of the normalized image points
-
-     //Turn the 8 Vector2D points into a matrix of size 8x9.
-       /* int size = int(points_0.size());
-        Matrix W (size,9);
-        //Fill in the matrix W with the values of the normalized points.
-        //P = [x1'x1, x1'y1, x1', y1'x1, y1'y1, y1', x1, y1, 1]
-        //P = [x2'x2, x2'y2, x2', y2'x2, y2'y2, y2', x2, y2, 1]
-        for (int i = 0; i < points_0.size(); i++){
-            W.set(i,0, points_0_normalized[i].x() * points_1_normalized[i].x());
-            W.set(i,1, points_0_normalized[i].y() * points_1_normalized[i].x());
-            W.set(i,2, points_1_normalized[i].x());
-            W.set(i,3, points_0_normalized[i].x() * points_1_normalized[i].y());
-            W.set(i,4, points_0_normalized[i].y() * points_1_normalized[i].y());
-            W.set(i,5, points_1_normalized[i].y());
-            W.set(i,6, points_0_normalized[i].x());
-            W.set(i,7, points_0_normalized[i].y());
-            W.set(i,8, 1);
-        }*/
-
-        //5. Compute Fq (estimation of F) using the normalized points:
-        //WFq = 0 …where W is a Nx9 matrix derived from Nx8 correspondences and Fq is the values of the fundamental matrix we desire.
-        //Fq = UDV^T …where U and V are 3x3 matrices and D is a 3x3 diagonal matrix.
-
-        /*Matrix33 U, V, D;
-        svd_decompose(W, U, D, V);*/
-
-        /*//CHECK:: Print out U, D, and V to check if it is correct
-        std::cout<< "U = " << U << std::endl;
-        std::cout<< "D = " << D << std::endl;
-        std::cout<< "V = " << V << std::endl;*/
-
-        /*// We can enforce the rank-2 constraint by setting the smallest singular value to 0.
-        D.set(2,2,0);
-        //CHECK:: Print out D to see if its correct.
-        std::cout << "D = " << D << std::endl;
-
-        Matrix33 Fq = U * D * V.transpose();
-        //CHECK:: Print out Fq to see if its correct.
-        std::cout << "Fq = " << Fq << std::endl;*/
-
-        //6. Compute F using the inverse of the similarity transformation to Fq:
-        //Finally, we can transform the new Fq back to the original coordinates using the inverse of the similarity transformation to compute F.
-        //F = T2^T * Fq * T1
-        // Matrix F;
-        // F = T1.transpose() * Fq * T0;
-
-        //CHECK:: Print out F to see if its correct.
-        // std::cout<< "F = " << F << std::endl;
-
-        //7. Write the recovered relative pose into R and t  (the view will be updated as seen from the 2nd camera):
-        //R = U * Rz * V^T
-        //t = u3
-        // R = U * D * V.transpose();
-        // t = U.get_column(2);
-
-        //CHECK:: Print out R and t to see if its correct.
-        // std::cout<< "R = " << R << std::endl;
-        // std::cout<< "t = " << t << std::endl;
-
-/*        double sumx0 = 0;
-        double sumy0 = 0;
-        double sumx1 = 0;
-        double sumy1 = 0;
-        for (int i = 0; i < points_0.size(); i++) {
-            sumx0 = sumx0 + points_0[i].x();
-            sumy0 = sumy0 + points_0[i].y();
-            sumx1 = sumx1 + points_1[i].x();
-            sumy1 = sumy1 + points_1[i].y();}
-
-        double tx0 = sumx0 / points_0.size();
-        double ty0 = sumy0 / points_0.size();
-        double tx1 = sumx1 / points_1.size();
-        double ty1 = sumy1 / points_1.size();
-        Vector2D s0;
-        Vector2D s1;
-
-        for (int i = 0; i < points_0.size(); i++) {
-            Vector2D mc0[i];
-            Vector2D mc1[i];
-            Vector2D dc0[i];
-            Vector2D dc1[i];
-            mc0[i].x() = points_0[i].x() - tx0;
-            mc0[i].y() = points_0[i].y() - ty0;
-            mc1[i].x() = points_1[i].x() - tx1;
-            mc1[i].y() = points_1[i].y() - ty1;
-            dc0[i].x() += sqrt(pow(mc0[i].x(),2));
-            dc0[i].y() += sqrt(pow(mc0[i].y(),2));
-            dc1[i].x() += sqrt(pow(mc1[i].x(),2));
-            dc1[i].y() += sqrt(pow(mc1[i].y(),2));
-            s0[i] = sqrt(2)/dc0[i];
-            //TODO: Check if the one bellow is a way calculate s
-            s1[i] = dot(1.0/sqrt(2),dc1[i]);
-        }
-
-        double s = sqrt(dc1[0])/1.0
-
-        // TODO: Fix s
-        // TODO: Do we need two matrices? (i.e. T0 and T1 to use tx0 and tx1?)
-        Matrix33 T0(s0, 0, -s0*tx0,
-                    0, s0, -s0*ty0,
-                    0, 0, 1);
-
-        Matrix33 T1(s1, 0, -s1*tx1,
-                    0, s1, -s1*ty1,
-                    0, 0, 1);*/
-
-        //F = F'*T0*T1?
-
-        // TODO: Reconstruct 3D points. The main task is
-        //      - triangulate a pair of image points (i.e., compute the 3D coordinates for each corresponding point pair)
 
         // TODO: Don't forget to
         //          - write your recovered 3D points into 'points_3d' (so the viewer can visualize the 3D points for you);
