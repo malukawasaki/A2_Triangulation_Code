@@ -441,7 +441,7 @@ bool Triangulation::triangulation(
         points_3d = P2_array;
         R = R1;
         t = t2;
-
+        // beautiful
 
         // TODO: Reconstruct 3D points. The main task is
         //      - triangulate a pair of image points (i.e., compute the 3D coordinates for each corresponding point pair)
