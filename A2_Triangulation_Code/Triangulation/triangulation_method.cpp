@@ -28,13 +28,11 @@
 #include "matrix_algo.h"
 #include <easy3d/optimizer/optimizer_lm.h>
 #include <numeric>
-#include <list>
 
 using namespace easy3d;
 
 
 /**
- * TODO: Finish this function for reconstructing 3D geometry from corresponding image points.
  * @return True on success, otherwise false. On success, the reconstructed 3D points must be written to 'points_3d'
  *      and the recovered relative pose must be written to R and t.
  */
@@ -72,70 +70,12 @@ bool Triangulation::triangulation(
                  "\t    - make sure your code compiles and can reproduce your results without ANY modification.\n\n"
               << std::flush;
 
-    /// Below are a few examples showing some useful data structures and APIs.
-
-    /*  /// define a 2D vector/point
-      Vector2D b(1.1, 2.2);
-
-      /// define a 3D vector/point
-      Vector3D a(1.1, 2.2, 3.3);
-
-      /// get the Cartesian coordinates of a (a is treated as Homogeneous coordinates)
-      Vector2D p = a.cartesian();
-
-      /// get the Homogeneous coordinates of p
-      Vector3D q = p.homogeneous();
-
-      /// define a 3 by 3 matrix (and all elements initialized to 0.0)
-      Matrix33 A;
-
-      /// define and initialize a 3 by 4 matrix
-      Matrix34 M(1.1, 2.2, 3.3, 0,
-                 0, 2.2, 3.3, 1,
-                 0, 0, 1, 1);
-
-      /// set first row by a vector
-      M.set_row(0, Vector4D(1.1, 2.2, 3.3, 4.4));
-
-      /// set second column by a vector
-      M.set_column(1, Vector3D(5.5, 5.5, 5.5));
-
-      /// define a 15 by 9 matrix (and all elements initialized to 0.0)
-      // Matrix W(15, 9, 0.0);
-      /// set the first row by a 9-dimensional vector
-      // W.set_row(0, {0, 1, 2, 3, 4, 5, 6, 7, 8}); // {....} is equivalent to a std::vector<double>
-
-      /// get the number of rows.
-     // int num_rows = W.rows();
-
-      /// get the number of columns.
-      // int num_cols = W.cols();
-
-      /// get the the element at row 1 and column 2
-     // double value = W(1, 2);
-
-      /// get the last column of a matrix
-      // Vector last_column = W.get_column(W.cols() - 1);
-
-      /// define a 3 by 3 identity matrix
-      Matrix33 I = Matrix::identity(3, 3, 1.0);
-
-      /// matrix-vector product
-      Vector3D v = M * Vector4D(1, 2, 3, 4); // M is 3 by 4
-
-      ///For more functions of Matrix and Vector, please refer to 'matrix.h' and 'vector.h'*/
-
-    // TODO: delete all above example code in your final submission
-
     //--------------------------------------------------------------------------------------------------------------
 
     /// Check if the input is valid (i.e. sizes of points must match and be greater or equal to 8)
     if (points_0.size() != points_1.size() || points_0.size() < 8) {
-        std::cout << "Sizes of points do not match or are smaller than 8. This operation is not possible" << std::endl;
         return false;
     } else {
-        std::cout << "Sizes of points match and are greater or equal to 8. This operation is possible"
-                  << std::endl;
 
         // STEP 1. Estimate the fundamental matrix F.
         //Calculate the centers (corresponding pixel centers in each image separately).
@@ -161,8 +101,6 @@ bool Triangulation::triangulation(
         avg_distance0 /= points_0.size();
         avg_distance1 /= points_1.size();
 
-        /*std::cout << "ADis0 = " << avg_distance0 << std::endl;
-        std::cout << "Adis1 = " << avg_distance1 << std::endl;*/
 
         //Compute scaling factor using average distance.
         double scaling_factor0 = sqrt(2)/avg_distance0;
@@ -173,9 +111,9 @@ bool Triangulation::triangulation(
         std::vector<Vector2D> points_1_normalized(points_1.size());
         for (int i = 0; i < points_0.size(); i++){
             points_0_normalized[i].x() = (points_0[i].x() - center0.x()) * scaling_factor0;
-            points_0_normalized[i].y() = (points_0[i].y() - center0.y()) * scaling_factor0; // I changed the x's to y's in this line
+            points_0_normalized[i].y() = (points_0[i].y() - center0.y()) * scaling_factor0;
             points_1_normalized[i].x() = (points_1[i].x() - center1.x()) * scaling_factor1;
-            points_1_normalized[i].y() = (points_1[i].y() - center1.y()) * scaling_factor1; // I changed the x's to y's in this line
+            points_1_normalized[i].y() = (points_1[i].y() - center1.y()) * scaling_factor1;
         }
 
         int size = int(points_0.size());
@@ -210,7 +148,6 @@ bool Triangulation::triangulation(
                 F_hat(i, j) = V(i * 3 + j, col_index);
             }
         }
-        //std::cout << "F_hat = " << F_hat << std::endl;
 
         Matrix33 A, B, C;
         svd_decompose(F_hat, A, B, C);
@@ -240,16 +177,15 @@ bool Triangulation::triangulation(
                     0, fy, cy,
                     0,0,1);
         Matrix33 E = K.transpose() * F * K;
-        //std::cout << "E = " << E << std::endl;
+
         Matrix33 X,Z;
         // Enforce that the diagonal of Ydiag = (1,1,0)
         Matrix33 Y(1,0,0,
                    0,1,0,
                    0,0,0);
-        //std::cout << "Y = " << Y << std::endl;
+
         svd_decompose(E, X, Y, Z); // X=U, Y=D, Z=V
-        //std::cout << "X = " << X << std::endl;
-        //std::cout << "Z = " << Z << std::endl;
+
 
         // Calculate 4 Rt settings from E.
         Matrix33 E_W(0, -1, 0,
@@ -260,22 +196,15 @@ bool Triangulation::triangulation(
                      0, 0, 0);
 
         Matrix33 tx = X * E_Z * X.transpose();
-        std::cout << "tx = " << tx << std::endl;
 
         Matrix33 R1 = X * E_W *Z.transpose();
         Matrix33 R2 = X * E_W.transpose() *Z.transpose();
-        std::cout << "R1 = " << R1 << std::endl;
-        std::cout << "R2 = " << R2 << std::endl;
 
         R1 *= determinant(R1);
         R2 *= determinant(R2);
-        std::cout << "determinant of R1 = " << determinant(R1) << std::endl;
-        std::cout << "determinant of R2 = " << determinant(R2) << std::endl;
 
         Vector3D t1 = X.get_column(X.cols() - 1);
         Vector3D t2 = -X.get_column(X.cols() - 1);
-        std::cout << "t1 = " << t1 << std::endl;
-        std::cout << "t2 = " << t2 << std::endl;
 
         // Create matrices Rt with the 4 different combinations.
         Matrix34 Rt1(R1(0,0), R1(0,1),R1(0,2), t1.x(),
@@ -344,7 +273,6 @@ bool Triangulation::triangulation(
             P1 /= P1[3]; //divide by last element of P to scale
             P1_3D = P1.cartesian();
             P1_array.push_back(P1_3D);
-            //std:: cout << "P1: " << P1_3D << std::endl;
 
             Matrix44 H2, I2, J2;
             svd_decompose(A2,H2,I2,J2);
@@ -352,7 +280,6 @@ bool Triangulation::triangulation(
             P2 /= P2[3]; //divide by last element of P to scale
             P2_3D = P2.cartesian();
             P2_array.push_back(P2_3D);
-            //std:: cout << "P2: " << P2_3D << std::endl;
 
             Matrix44 H3, I3, J3;
             svd_decompose(A3,H3,I3,J3);
@@ -360,7 +287,6 @@ bool Triangulation::triangulation(
             P3 /= P3[3]; //divide by last element of P to scale
             P3_3D = P3.cartesian();
             P3_array.push_back(P3_3D);
-            //std:: cout << "P3: " << P3_3D << std::endl;
 
             Matrix44 H4, I4, J4;
             svd_decompose(A4,H4,I4,J4);
@@ -368,7 +294,7 @@ bool Triangulation::triangulation(
             P4 /= P4[3]; //divide by last element of P to scale
             P4_3D = P4.cartesian();
             P4_array.push_back(P4_3D);
-            //std:: cout << "P4: " << P4_3D << std::endl;
+
         }
 
         //STEP 5. Write recovered 3D points into 'points_3d':
@@ -383,7 +309,6 @@ bool Triangulation::triangulation(
                 zs_P1 = zs_P1;
             }
         }
-        std::cout << "zs_P1: " << zs_P1 << std::endl;
 
         int zs_P2 = 0;
 
@@ -394,7 +319,6 @@ bool Triangulation::triangulation(
                 zs_P2 = zs_P2;
             }
         }
-        std::cout << "zs_P2: " << zs_P2 << std::endl;
 
         int zs_P3 = 0;
 
@@ -405,7 +329,6 @@ bool Triangulation::triangulation(
                 zs_P3 = zs_P3;
             }
         }
-        std::cout << "zs_P3: " << zs_P3 << std::endl;
 
         int zs_P4 = 0;
 
@@ -416,51 +339,26 @@ bool Triangulation::triangulation(
                 zs_P4 = zs_P4;
             }
         }
-        std::cout << "zs_P4: " << zs_P4 << std::endl;
 
-        /*std::vector<Vector3D> P_array;
         if (zs_P1  > zs_P2 && zs_P1 > zs_P3 && zs_P1 > zs_P4) {
-            std::cout << "R1 and t1 are the optimal" << std::endl;
-            P_array = P1_array;
+            R = R1;
+            t = t1;
+            points_3d = P1_array;
         }
-        else if (zs_P2  > zs_P1 && zs_P2 > zs_P3 && zs_P1 > zs_P4) {
-            std::cout << "R1 and t2 are the optimal" << std::endl;
-            P_array = P2_array;
+        else if (zs_P2  > zs_P1 && zs_P2 > zs_P3 && zs_P2 > zs_P4) {
+            R = R1;
+            t = t2;
+            points_3d = P2_array;
         }
         else if (zs_P3  > zs_P1 && zs_P3 > zs_P2 && zs_P3 > zs_P4) {
-            std::cout << "R2 and t1 are the optimal" << std::endl;
-            P_array = P3_array;
+            R = R2;
+            t = t1;
+            points_3d = P3_array;
         }
         else if (zs_P4  > zs_P1 && zs_P4 > zs_P2 && zs_P4 > zs_P3) {
-            std::cout << "R2 and t2 are the optimal" << std::endl;
-            P_array = P4_array;
-        }*/
-
-
-        // Need to populate points_3d with variable which represents a collection of Vector3D objects.
-        points_3d = P2_array;
-        R = R1;
-        t = t2;
-        // beautiful
-
-        // TODO: Reconstruct 3D points. The main task is
-        //      - triangulate a pair of image points (i.e., compute the 3D coordinates for each corresponding point pair)
-
-
-        // TODO: Don't forget to
-        //          - write your recovered 3D points into 'points_3d' (so the viewer can visualize the 3D points for you);
-        //          - write the recovered relative pose into R and t (the view will be updated as seen from the 2nd camera,
-        //            which can help you check if R and t are correct).
-        //       You must return either 'true' or 'false' to indicate whether the triangulation was successful (so the
-        //       viewer will be notified to visualize the 3D points and update the view).
-        //       There are a few cases you should return 'false' instead, for example:
-        //          - function not implemented yet;
-        //          - input not valid (e.g., not enough points, point numbers don't match);
-        //          - encountered failure in any step.
-        std::cout<<points_3d.size();
-        for (size_t i = 0; i < points_3d.size(); i++)
-        {
-            std::cout<<points_3d[i]<<std::endl;
+            R = R2;
+            t = t2;
+            points_3d = P4_array;
         }
 
         return points_3d.size() > 0;
