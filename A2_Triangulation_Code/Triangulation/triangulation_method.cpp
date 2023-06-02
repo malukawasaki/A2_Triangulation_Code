@@ -324,111 +324,61 @@ bool Triangulation::triangulation(
         Matrix34 M4 = K * Rt4;
 
         // Create matrices A = [xm3^T - m1^T, ym3^T - m2^T, x'm'3^T - m'1^T, y'm'3^T - m'2^T]
-        // TODO:: Make this shorter?
-        Matrix44 A1, A2, A3, A4;
+        //std::cout << "A1 =" << A1 << std::endl;
+        std::vector<Vector3D> P1_array;
         for (int i = 0; i < points_0.size(); i++) {
+            Matrix44 A1;
+            A1.set_row(0, points_0[i].x() * M0.get_row(2) - M0.get_row(0));
+            A1.set_row(1, points_0[i].y() * M0.get_row(2) - M0.get_row(1));
+            A1.set_row(2, points_1[i].x() * M1.get_row(2) - M1.get_row(0));
+            A1.set_row(3, points_1[i].y() * M1.get_row(2) - M1.get_row(1));
 
-            // Populate A1 using M1
-            A1(0, 0) = points_0[i].x() * M0(2, 0) - M0(0, 0);
-            A1(0, 1) = points_0[i].x() * M0(2, 1) - M0(0, 1);
-            A1(0, 2) = points_0[i].x() * M0(2, 2) - M0(0, 2);
-            A1(0, 3) = points_0[i].x() * M0(2, 3) - M0(0, 3);
+            Matrix44 H1, I1, J1;
+            svd_decompose(A1,H1,I1,J1);
+            Vector4D P1 = J1.get_column(J1.cols() - 1);
+            P1 /= P1[3]; //divide by last element of P to scale
+            Vector3D P1_3D = P1.cartesian();
+            std::cout << "P1_3D =" << P1_3D << std::endl;
+            P1_array.push_back(P1_3D);
 
-            A1(1, 0) = points_0[i].y() * M0(2, 0) - M0(1, 0);
-            A1(1, 1) = points_0[i].y() * M0(2, 1) - M0(1, 1);
-            A1(1, 2) = points_0[i].y() * M0(2, 2) - M0(1, 2);
-            A1(1, 3) = points_0[i].y() * M0(2, 3) - M0(1, 3);
+            /*Matrix44 A2;
+            A2.set_row(0, points_0[i].x() * M0.get_row(2) - M0.get_row(0));
+            A2.set_row(1, points_0[i].y() * M0.get_row(2) - M0.get_row(1));
+            A2.set_row(2, points_1[i].x() * M2.get_row(2) - M2.get_row(0));
+            A2.set_row(3, points_1[i].y() * M2.get_row(2) - M2.get_row(1));
 
-            A1(2, 0) = points_1[i].x() * M1(2, 0) - M1(0, 0);
-            A1(2, 1) = points_1[i].x() * M1(2, 1) - M1(0, 1);
-            A1(2, 2) = points_1[i].x() * M1(2, 2) - M1(0, 2);
-            A1(2, 3) = points_1[i].x() * M1(2, 3) - M1(0, 3);
+            Matrix44 H2, I2, J2;
+            Matrix44 H3, I3, J3;
+            Matrix44 H4, I4, J4;
+            Matrix44 A3;
+            A3.set_row(0, points_0[i].x() * M0.get_row(2) - M0.get_row(0));
+            A3.set_row(1, points_0[i].y() * M0.get_row(2) - M0.get_row(1));
+            A3.set_row(2, points_1[i].x() * M3.get_row(2) - M3.get_row(0));
+            A3.set_row(3, points_1[i].y() * M3.get_row(2) - M3.get_row(1));
 
-            A1(3, 0) = points_1[i].y() * M1(2, 0) - M1(1, 0);
-            A1(3, 1) = points_1[i].y() * M1(2, 1) - M1(1, 1);
-            A1(3, 2) = points_1[i].y() * M1(2, 2) - M1(1, 2);
-            A1(3, 3) = points_1[i].y() * M1(2, 3) - M1(1, 3);
-
-            // Populate A2 using M2
-            A2(0, 0) = points_0[i].x() * M0(2, 0) - M0(0, 0);
-            A2(0, 1) = points_0[i].x() * M0(2, 1) - M0(0, 1);
-            A2(0, 2) = points_0[i].x() * M0(2, 2) - M0(0, 2);
-            A2(0, 3) = points_0[i].x() * M0(2, 3) - M0(0, 3);
-
-            A2(1, 0) = points_0[i].y() * M0(2, 0) - M0(1, 0);
-            A2(1, 1) = points_0[i].y() * M0(2, 1) - M0(1, 1);
-            A2(1, 2) = points_0[i].y() * M0(2, 2) - M0(1, 2);
-            A2(1, 3) = points_0[i].y() * M0(2, 3) - M0(1, 3);
-
-            A2(2, 0) = points_1[i].x() * M2(2, 0) - M2(0, 0);
-            A2(2, 1) = points_1[i].x() * M2(2, 1) - M2(0, 1);
-            A2(2, 2) = points_1[i].x() * M2(2, 2) - M2(0, 2);
-            A2(2, 3) = points_1[i].x() * M2(2, 3) - M2(0, 3);
-
-            A2(3, 0) = points_1[i].y() * M2(2, 0) - M2(1, 0);
-            A2(3, 1) = points_1[i].y() * M2(2, 1) - M2(1, 1);
-            A2(3, 2) = points_1[i].y() * M2(2, 2) - M2(1, 2);
-            A2(3, 3) = points_1[i].y() * M2(2, 3) - M2(1, 3);
-
-            // Populate A3 using M3
-            A3(0, 0) = points_0[i].x() * M0(2, 0) - M0(0, 0);
-            A3(0, 1) = points_0[i].x() * M0(2, 1) - M0(0, 1);
-            A3(0, 2) = points_0[i].x() * M0(2, 2) - M0(0, 2);
-            A3(0, 3) = points_0[i].x() * M0(2, 3) - M0(0, 3);
-
-            A3(1, 0) = points_0[i].y() * M0(2, 0) - M0(1, 0);
-            A3(1, 1) = points_0[i].y() * M0(2, 1) - M0(1, 1);
-            A3(1, 2) = points_0[i].y() * M0(2, 2) - M0(1, 2);
-            A3(1, 3) = points_0[i].y() * M0(2, 3) - M0(1, 3);
-
-            A3(2, 0) = points_1[i].x() * M3(2, 0) - M3(0, 0);
-            A3(2, 1) = points_1[i].x() * M3(2, 1) - M3(0, 1);
-            A3(2, 2) = points_1[i].x() * M3(2, 2) - M3(0, 2);
-            A3(2, 3) = points_1[i].x() * M3(2, 3) - M3(0, 3);
-
-            A3(3, 0) = points_1[i].y() * M3(2, 0) - M3(1, 0);
-            A3(3, 1) = points_1[i].y() * M3(2, 1) - M3(1, 1);
-            A3(3, 2) = points_1[i].y() * M3(2, 2) - M3(1, 2);
-            A3(3, 3) = points_1[i].y() * M3(2, 3) - M3(1, 3);
-
-            // Populate A4 using M4
-            A4(0, 0) = points_0[i].x() * M0(2, 0) - M0(0, 0);
-            A4(0, 1) = points_0[i].x() * M0(2, 1) - M0(0, 1);
-            A4(0, 2) = points_0[i].x() * M0(2, 2) - M0(0, 2);
-            A4(0, 3) = points_0[i].x() * M0(2, 3) - M0(0, 3);
-
-            A4(1, 0) = points_0[i].y() * M0(2, 0) - M0(1, 0);
-            A4(1, 1) = points_0[i].y() * M0(2, 1) - M0(1, 1);
-            A4(1, 2) = points_0[i].y() * M0(2, 2) - M0(1, 2);
-            A4(1, 3) = points_0[i].y() * M0(2, 3) - M0(1, 3);
-
-            A4(2, 0) = points_1[i].x() * M4(2, 0) - M4(0, 0);
-            A4(2, 1) = points_1[i].x() * M4(2, 1) - M4(0, 1);
-            A4(2, 2) = points_1[i].x() * M4(2, 2) - M4(0, 2);
-            A4(2, 3) = points_1[i].x() * M4(2, 3) - M4(0, 3);
-
-            A4(3, 0) = points_1[i].y() * M4(2, 0) - M4(1, 0);
-            A4(3, 1) = points_1[i].y() * M4(2, 1) - M4(1, 1);
-            A4(3, 2) = points_1[i].y() * M4(2, 2) - M4(1, 2);
-            A4(3, 3) = points_1[i].y() * M4(2, 3) - M4(1, 3);
+            Matrix44 A4;
+            A4.set_row(0, points_0[i].x() * M0.get_row(2) - M0.get_row(0));
+            A4.set_row(1, points_0[i].y() * M0.get_row(2) - M0.get_row(1));
+            A4.set_row(2, points_1[i].x() * M4.get_row(2) - M4.get_row(0));
+            A4.set_row(3, points_1[i].y() * M4.get_row(2) - M4.get_row(1));*/
 
         }
-
+        /*for (int i = 0; i < P1_array.size(); i++) {
+            std::cout << "P1_array =" << P1_array[i] << std::endl;
+        }*/
+        std::cout << "P1_array size=" << P1_array.size() << std::endl;
         // Step 2.2 triangulate and compute inliers (z values w.r.t. camera is positive)
 
         //SVD the different A matrices to find the value of P
-        Matrix44 H1, I1, J1;
-        Matrix44 H2, I2, J2;
-        Matrix44 H3, I3, J3;
-        Matrix44 H4, I4, J4;
 
-        svd_decompose(A1,H1,I1,J1); // H=U, I=D, J=V
+
+        /* // H=U, I=D, J=V
         svd_decompose(A2,H2,I2,J2);
         svd_decompose(A3,H3,I3,J3);
         svd_decompose(A4,H4,I4,J4);
 
         //P is the last column of J (V in the notes)
-        Vector4D P1 = J1.get_column(J1.cols() - 1);
+
         Vector4D P2 = J2.get_column(J2.cols() - 1);
         Vector4D P3 = J3.get_column(J3.cols() - 1);
         Vector4D P4 = J4.get_column(J4.cols() - 1);
@@ -438,7 +388,7 @@ bool Triangulation::triangulation(
         std::cout << "P1 =" << P1 << std::endl;
         std::cout << "P2 =" << P2 << std::endl;
         std::cout << "P3 =" << P3 << std::endl;
-        std::cout << "P4 =" << P4 << std::endl;
+        std::cout << "P4 =" << P4 << std::endl;*/
 
         // TODO: Reconstruct 3D points. The main task is
         //      - triangulate a pair of image points (i.e., compute the 3D coordinates for each corresponding point pair)
